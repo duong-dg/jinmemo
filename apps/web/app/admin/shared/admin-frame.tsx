@@ -4,9 +4,10 @@ import{useEffect,useState}from'react';
 import Link from'next/link';
 import{adminApi}from'./admin-api';
 const menuGroups=[
- {label:'Bán hàng',items:[['transport','/admin/dat-xe','Đặt xe & điều xe'],['pos','/admin/ban-tai-quay','Bán vé tại quầy'],['shifts','/admin/ca-quay','Ca quầy & bàn giao'],['pos-users','/admin/nhan-vien-quay','Nhân viên & phân quyền'],['reports','/admin/bao-cao','Báo cáo doanh thu'],['vouchers','/admin/voucher','Mã giảm giá & voucher']]},
+ {label:'Bán hàng',items:[['pos','/admin/ban-tai-quay','Bán vé tại quầy'],['shifts','/admin/ca-quay','Ca quầy & bàn giao'],['pos-users','/admin/nhan-vien-quay','Nhân viên & phân quyền'],['reports','/admin/bao-cao','Báo cáo doanh thu'],['vouchers','/admin/voucher','Mã giảm giá & voucher']]},
  {label:'Thanh toán',items:[['payments','/admin/thanh-toan','Cổng thanh toán'],['payment-journal','/admin/doi-soat-thanh-toan','Đối soát thanh toán']]},
- {label:'Sản phẩm',items:[['products','/admin','Sản phẩm & giá'],['inventory','/admin/ton-ve','Tồn vé & giới hạn'],['supply','/admin/nguon-ve','Nguồn vé & giá vốn'],['ticket-stock','/admin/kho-ma','Kho mã vé'],['suppliers','/admin/nha-cung-cap','Nhà cung cấp'],['supplier-statements','/admin/doi-soat-ncc','Đối soát nhà cung cấp'],['types','/admin/loai-san-pham','Loại sản phẩm'],['destinations','/admin/diem-den','Điểm đến']]},
+ {label:'Đặt xe',items:[['vehicles','/admin/xe','Tuyến xe & giá'],['transport','/admin/dat-xe','Đơn xe & điều xe']]},
+ {label:'Vé & tour',items:[['products','/admin','Vé & tour — danh sách & giá'],['inventory','/admin/ton-ve','Tồn vé & giới hạn'],['supply','/admin/nguon-ve','Nguồn vé & giá vốn'],['ticket-stock','/admin/kho-ma','Kho mã vé'],['suppliers','/admin/nha-cung-cap','Nhà cung cấp'],['supplier-statements','/admin/doi-soat-ncc','Đối soát nhà cung cấp'],['types','/admin/loai-san-pham','Loại sản phẩm'],['destinations','/admin/diem-den','Điểm đến']]},
  {label:'Cộng tác viên',items:[['partners','/admin/ctv','CTV & công nợ'],['groups','/admin/nhom-gia','Nhóm giá CTV']]},
  {label:'Blog',items:[['posts','/admin/bai-viet','Bài viết'],['categories','/admin/bai-viet?section=categories','Chuyên mục']]},
  {label:'Trang',items:[['pages','/admin/trang-noi-dung','Trang nội dung & menu'],['contact-inbox','/admin/lien-he','Yêu cầu liên hệ']]},

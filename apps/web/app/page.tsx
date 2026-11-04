@@ -17,7 +17,7 @@ export default async function Home() {
         const response = await fetch(`${process.env.INTERNAL_API_URL || 'http://localhost:4000'}/api/v1/products?lang=${locale}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
         if (!response.ok)
             throw new Error('Catalog unavailable');
-        products = (await response.json()).data;
+        products = (await response.json()).data.filter((p:Product)=>!p.transport);
         [types,destinations] = await Promise.all([contentApi<ProductType[]>('product-types', locale),contentApi<DestinationNode[]>('destinations',locale)]);
     }
     catch {

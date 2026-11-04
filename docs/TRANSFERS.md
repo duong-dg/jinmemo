@@ -2,7 +2,7 @@
 
 ## Tạo tuyến
 
-Trong **Sản phẩm & giá**, thêm sản phẩm cho từng tuyến. Tạo loại sản phẩm “Đưa đón / đặt xe” nếu muốn phân loại riêng. Điểm đến, ảnh, mô tả, nội dung chi tiết và bản dịch dùng trình sửa hiện có.
+Trong **Đặt xe → Tuyến xe & giá**, bấm **Thêm tuyến xe**. Danh sách này tách khỏi **Vé & tour**; các tuyến xe cũ tự xuất hiện đúng mục, không cần nhập lại. Tạo loại sản phẩm “Đưa đón / đặt xe” nếu muốn phân loại riêng. Điểm đến, ảnh, mô tả, nội dung chi tiết và bản dịch dùng trình sửa hiện có.
 
 Trong tab **Đặt xe → Đặt xe / đưa đón**, chọn xe riêng hoặc xe ghép; nhập nơi đi, nơi đến và số phút ngừng nhận trước giờ đi. Mỗi gói là một loại xe/dịch vụ. Điền tối đa hành khách cho từng gói.
 
