@@ -1,3 +1,4 @@
+import{AreaSourceModule}from'./transport/area-source.module';
 import{RidesModule}from'./transport/rides.module';
 import{TransportPlanningModule}from'./transport/planning.module';
 import{ManualMethodsModule}from'./payments/manual-methods';
@@ -30,5 +31,5 @@ class HealthController {
   @Get() health() { return { status: 'ok', service: 'jinmemo-api', mode: process.env.NODE_ENV==='production'?'production':'development', brand:'JinMemo', version: '1.0.0' }; }
 }
 
-@Module({ imports: [RidesModule,TransportPlanningModule,ManualMethodsModule,TransportModule,BackupsModule,OverviewModule,ContactRequestsModule,PagesModule,WeatherModule,SiteSeoModule,CartsModule,TicketFilesModule,PaymentsModule,VouchersModule,SuppliersModule,DatabaseModule, CatalogModule, PricingModule, AdminModule, OrdersModule,PostsModule,PartnersModule,TranslationsModule,OperationsModule,PosModule], controllers: [HealthController] })
+@Module({ imports: [AreaSourceModule,RidesModule,TransportPlanningModule,ManualMethodsModule,TransportModule,BackupsModule,OverviewModule,ContactRequestsModule,PagesModule,WeatherModule,SiteSeoModule,CartsModule,TicketFilesModule,PaymentsModule,VouchersModule,SuppliersModule,DatabaseModule, CatalogModule, PricingModule, AdminModule, OrdersModule,PostsModule,PartnersModule,TranslationsModule,OperationsModule,PosModule], controllers: [HealthController] })
 export class AppModule {}

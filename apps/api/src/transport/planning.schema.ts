@@ -4,7 +4,7 @@ const id=z.string().min(1).max(80),name=z.string().trim().min(1).max(150),money=
 export const planSchema=z.object({
  enabled:z.boolean().default(false),
  vehicles:z.array(z.object({id,name,seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict()).max(20),
- areas:z.array(z.object({id,name,parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(100),
+ areas:z.array(z.object({id,name,parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(1000),
  fares:z.array(z.object({id,from:id,to:id,vehicleId:id,privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
  trips:z.array(z.object({id,from:id,to:id,vehicleId:id,date,start:time,end:time,departure:time,cutoffMinutes:z.number().int().min(0).max(1440),seatPrice:money,status:z.enum(['DRAFT','OPEN','CLOSED'])}).strict()).max(200),
  requests:z.array(z.object({id,label:name,from:id,to:id,date,time,flexMinutes:z.union([z.literal(0),z.literal(30),z.literal(60)]),passengers:z.number().int().min(1).max(60),status:z.enum(['WAITING','HELD','CONFIRMED','CANCELLED']),tripId:id.optional()}).strict()).max(300)

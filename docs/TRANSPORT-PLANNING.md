@@ -2,13 +2,16 @@
 
 ## Cấu hình
 
-Vào **Đặt xe → Cấu hình xe & giá tuyến** (`/admin/khung-xe`).
+Vào **Đặt xe → Loại xe / Khu vực đón trả / Giá tuyến / Lịch chuyến ghép**.
 
 - **Loại xe:** tên, số ghế hành khách thực nhận, một hình và một ghi chú dùng chung. Không nhập lại ghi chú ở từng tuyến. Số ghế không tự suy ra từ tên xe.
 - **Khu vực:** tạo vùng và các phường/xã trực thuộc theo địa chỉ hiện hành của đơn vị vận hành. Không gắn cứng danh mục hành chính cũ. Đây là vùng phục vụ/bảng giá do admin quản lý, không phải tự tra địa chỉ hoặc dữ liệu bản đồ.
 - **Giá tuyến:** theo chiều đi và loại xe, giá xe riêng/chuyến, giá xe ghép/người, thời gian di chuyển ước tính. Chiều về cần cấu hình riêng. Giá đúng khu vực được ưu tiên; khi dùng tuyến vùng cha, cộng mức điều chỉnh vùng con theo xe. Website chỉ hiện tổng tiền. Xe ghép tính giá/người × số người + điều chỉnh khu vực một lần cho nhóm.
 - **Chuyến ghép:** ngày, loại xe, khoảng đón và giờ khởi hành, hạn ngừng nhận. Giá lấy từ Giá tuyến, không nhập lại ở chuyến. Ghế đã ghép là booking thật, không dùng khách mẫu của bản khung cũ.
-- Nút nạp ví dụ chỉ nạp dữ liệu/giá minh họa và tắt mở nhận; cần xem lại, lưu, rồi bật **Mở nhận đặt xe trên website** khi giá đúng.
+- Không có dữ liệu mẫu hoặc tab thử báo giá trong admin. Nhập giá thật, lưu rồi bật **Mở nhận đặt xe trên website** khi đã sẵn sàng.
+- Trong **Khu vực đón trả → Nạp xã/phường tự động**, chọn dữ liệu mới (sau 07/2025) hoặc cũ, tải tỉnh/thành. Bộ cũ chọn thêm quận/huyện, rồi bấm nạp và Lưu. Chỉ thêm ID chưa có, không sửa khu vực/giá cũ, không tự quy đổi giá giữa địa giới cũ/mới.
+- Nguồn: https://provinces.open-api.vn/ (danh mục tham khảo cộng đồng). API chỉ gọi khi admin nạp, cache một ngày trong bộ nhớ, timeout 12 giây; tối đa 1.000 khu vực phục vụ. Khách dùng dữ liệu đã lưu, API nguồn hỏng không ảnh hưởng tìm xe.
+- Thanh tìm xe trên máy tính nằm ngang; điện thoại xếp gọn. Ô nơi đi/nơi đến hỗ trợ gõ không dấu, phím mũi tên, Enter, Escape; cần chọn mục cụ thể để có ID vùng tính giá.
 
 ## Website
 
