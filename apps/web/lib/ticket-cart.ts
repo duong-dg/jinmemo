@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-export type CartLine = { id: string; productId: string; variantId: string; productName: string; variantName: string; date: string; slotId?: string; quantities: Record<string, number>; expectedTotal: number; voucherCode?: string; coverId?: string; slotLabel?: string };
+export type CartLine = { transport?:{mode:'PRIVATE'|'SHARED';origin:string;destination:string;leadMinutes?:number;maxPassengers?:number;roundTrip?:boolean}; id: string; productId: string; variantId: string; productName: string; variantName: string; date: string; slotId?: string; quantities: Record<string, number>; expectedTotal: number; voucherCode?: string; coverId?: string; slotLabel?: string };
 const memory = new Map<string, CartLine[]>();
 function storage(scope: string) { return scope === 'WEB' ? localStorage : sessionStorage; }
 export function readCart(scope: string): CartLine[] {

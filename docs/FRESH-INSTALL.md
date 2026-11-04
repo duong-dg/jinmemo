@@ -26,7 +26,7 @@ WEB_PORT=3101
 WEB_BIND=0.0.0.0
 ```
 
-`DATABASE_URL` trong Compose được tạo từ POSTGRES_*. Nếu chạy API trực tiếp ngoài Docker, sửa DATABASE_URL trong `.env` tương ứng với password mới. NPM của bạn nằm trên máy khác nên WEB_BIND dùng 0.0.0.0; trên firewall host chỉ nên cho máy proxy truy cập port 3101.
+Compose truyền POSTGRES_* thành từng trường kết nối riêng, nên mật khẩu có ký tự đặc biệt không bị diễn giải thành URL. Nếu chạy API trực tiếp ngoài Docker, sửa DATABASE_URL trong `.env` tương ứng với password mới. NPM của bạn nằm trên máy khác nên WEB_BIND dùng 0.0.0.0; trên firewall host chỉ nên cho máy proxy truy cập port 3101.
 
 Không chép `.env` cũ sang; nhập lại các cấu hình cần dùng trong admin sau khi cài. Không sao chép khóa `.smtp-key` hoặc media volume của JinGo. JinMemo sinh khóa mới khi cần mã hóa cấu hình.
 

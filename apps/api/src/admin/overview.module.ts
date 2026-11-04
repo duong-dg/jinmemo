@@ -4,7 +4,7 @@ export function overviewDates(now=new Date()){const today=new Intl.DateTimeForma
 // There is at most one quote line per allowed customer type. Follow the booking schema when adding types.
 const guests='('+Object.keys(orderInput.shape.quantities.shape).map((_,i)=>`COALESCE((o.snapshot->'lines'->${i}->>'quantity')::integer,0)`).join('+')+')';
 const source=" FROM jinmemo_orders o LEFT JOIN jinmemo_order_archives a ON a.order_id=o.id LEFT JOIN (SELECT order_id,SUM(covers) AS issued FROM jinmemo_order_tickets GROUP BY order_id) t ON t.order_id=o.id LEFT JOIN jinmemo_pos_orders pos ON pos.order_id=o.id LEFT JOIN jinmemo_partner_orders partner ON partner.order_id=o.id WHERE a.order_id IS NULL AND o.booking_status<>'CANCELLED'";
-const due="o.booking_status='CONFIRMED' AND o.payment_status IN ('PAID','CREDIT') AND "+guests+'>COALESCE(t.issued,0)';
+const due="o.snapshot->'transport' IS NULL AND o.booking_status='CONFIRMED' AND o.payment_status IN ('PAID','CREDIT') AND "+guests+'>COALESCE(t.issued,0)';
 @Injectable()export class OverviewService{
  constructor(private readonly db:DatabaseService){}
  async get(raw:unknown,now=new Date()){

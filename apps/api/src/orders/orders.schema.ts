@@ -1,7 +1,9 @@
+import{transportInput}from'../transport/transport.schema';
 import { z } from 'zod';
 export const invoiceInput=z.object({name:z.string().trim().min(2).max(200),taxCode:z.string().trim().max(30).regex(/^[A-Za-z0-9-]*$/).default(''),address:z.string().trim().min(3).max(300),email:z.email().max(200)}).strict();
 const quantity = z.number().int().min(0).max(50);
 export const orderInput = z.object({
+  trip:transportInput.optional(),
   requestId: z.uuid(), accessKey: z.string().regex(/^[a-f0-9]{64}$/),
   productId: z.string().min(1).max(80), variantId: z.string().min(1).max(80), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   voucherCode:z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9_-]{2,39}$/).optional(),slotId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).optional(),quantities: z.object({ ADULT: quantity.optional(), CHILD: quantity.optional(), SENIOR: quantity.optional(), LOCAL_ADULT: quantity.optional(), LOCAL_CHILD: quantity.optional(), LOCAL_SENIOR: quantity.optional() }).strict(),

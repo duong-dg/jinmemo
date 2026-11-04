@@ -32,3 +32,11 @@ test('visitor and local groups coexist in one package and remain independent whe
  assert.equal(lines.length,1);assert.equal(lines[0].expectedTotal,1300000);assert.equal(lines[0].quantities.ADULT,1);assert.equal(lines[0].quantities.LOCAL_ADULT,2);
  lines=setSaleQuantity(lines,eco,'LOCAL_ADULT',1,{ADULT:600000,LOCAL_ADULT:350000,LOCAL_CHILD:0});assert.equal(lines[0].quantities.ADULT,1);assert.equal(lines[0].expectedTotal,950000);
 });
+
+test('private vehicle lines allow one vehicle while shared transfer lines count seats',()=>{
+ const privateLine:CartLine={...eco,quantities:{ADULT:0},transport:{mode:'PRIVATE',origin:'Airport',destination:'Hoi An',maxPassengers:4}};
+ assert.equal(setSaleQuantity([],privateLine,'ADULT',1,{ADULT:300000})[0].expectedTotal,300000);
+ assert.throws(()=>setSaleQuantity([],privateLine,'ADULT',2,{ADULT:300000}),/một xe/);
+ const shared:CartLine={...privateLine,transport:{...privateLine.transport!,mode:'SHARED'}};
+ assert.equal(setSaleQuantity([],shared,'ADULT',3,{ADULT:100000})[0].expectedTotal,300000);
+});

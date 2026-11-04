@@ -1,3 +1,4 @@
+import{validateTrip}from'../transport/transport.schema';
 import{calculateOnlineQuote,checkOnlineVoucher}from'../pricing/online-discount';
 import{TicketStockService}from'./ticket-stock.module';
 import{ShiftsService}from'../shifts/shifts.module';
@@ -18,7 +19,7 @@ import{applyNetPricing}from'../partners/net-pricing';
 import{ledgerRows,creditSummary,checkCredit}from'../partners/credit';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-export interface OrderSnapshot {onlineDiscount?:{type:'NONE'|'PERCENT'|'AMOUNT';value:number;amount:number;subtotal:number};discount?:{code:string;amount:number;subtotal:number};variantId?:string;timeSlot?:{id:string;start:string;end?:string;requiresSelection?:boolean}; locale?:string; productId: string; productName: string; variantName: string; date: string; total: number; demo: boolean; lines: { customerType: string; quantity: number; unitPrice: number; subtotal: number; originalUnitPrice?:number;unitDiscount?:number }[]; conditions: object; policy: string }
+export interface OrderSnapshot {transport?:ReturnType<typeof validateTrip>;onlineDiscount?:{type:'NONE'|'PERCENT'|'AMOUNT';value:number;amount:number;subtotal:number};discount?:{code:string;amount:number;subtotal:number};variantId?:string;timeSlot?:{id:string;start:string;end?:string;requiresSelection?:boolean}; locale?:string; productId: string; productName: string; variantName: string; date: string; total: number; demo: boolean; lines: { customerType: string; quantity: number; unitPrice: number; subtotal: number; originalUnitPrice?:number;unitDiscount?:number }[]; conditions: object; policy: string }
 interface OrderRow { id: string; code: string; snapshot: OrderSnapshot; contact: object; instructions: string; booking_status: string; payment_status: string; version: number; created_at: Date; request_hash: string }
 @Injectable()
 export class OrdersService {
@@ -43,6 +44,7 @@ export class OrdersService {
       const lockedPrior=await client.query('SELECT code,request_hash FROM jinmemo_orders WHERE request_id=$1',[input.requestId]);if(lockedPrior.rowCount){if(lockedPrior.rows[0].request_hash!==requestHash)throw new ConflictException('Yêu cầu này đã được dùng với nội dung khác.');if(!tx)await client.query('COMMIT');return{code:lockedPrior.rows[0].code,accessKey:input.accessKey};}
       const product = result.rows[0]?.data as ManagedProduct | undefined;
       if (!product || product.status !== 'PUBLISHED') throw new NotFoundException('Sản phẩm chưa mở bán.');
+      const trip=validateTrip(product,input.variantId,input.date,input.slotId,input.quantities,input.trip);
       if (product.demo) throw new BadRequestException('Sản phẩm minh họa không nhận đơn.');
       const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year:'numeric',month:'2-digit',day:'2-digit' }).format(new Date());
       if (input.date < today) throw new BadRequestException('Ngày sử dụng đã qua.');
@@ -51,17 +53,19 @@ export class OrdersService {
       catch (e) { throw new BadRequestException(e instanceof Error ? e.message : 'Không thể lấy giá.'); }
       if(group)quote=applyNetPricing(quote,group);
       const quantity=quote.lines.reduce((sum,line)=>sum+line.quantity,0);await this.inventory.check(product.id,input.variantId,input.date,quote.timeSlot?.id||'',quantity,client);
+      if(product.transport?.mode==='SHARED'){const capacity=await this.inventory.availability(product.id,input.variantId,input.date,quote.timeSlot?.id||'',client);if(!capacity.limited)throw new BadRequestException('Xe ghép chưa mở số chỗ. Liên hệ quản trị.');}
       if(!partnerId&&!pos)try{checkOnlineVoucher(quote,input.voucherCode);}catch(e){throw new BadRequestException((e as Error).message);}
       const discount=input.voucherCode?await this.vouchers.discount(input.voucherCode,quote.total,client,true,{productId:product.id,variantId:input.variantId,date:input.date}):null;const netTotal=quote.total-(discount?.amount||0);
       if (netTotal !== input.expectedTotal) throw new ConflictException('Giá vừa thay đổi. Vui lòng kiểm tra giá mới trước khi gửi.');
       if(input.locale==='en'&&!translated('PRODUCT',product))throw new ConflictException('English content has changed. Please refresh before booking.');const view=input.locale==='en'?localizeProduct(product):product;const variant = view.variants.find((v:{id:string}) => v.id === input.variantId)!;
-      const snapshot: OrderSnapshot = {...(quote.timeSlot?{timeSlot:quote.timeSlot}:{}), productId: product.id,variantId:input.variantId, ...(input.locale?{locale:input.locale}:{}),productName: view.name, variantName: variant.name, date: input.date,
+      const snapshot: OrderSnapshot = {...(trip?{transport:trip}:{}),...(quote.timeSlot?{timeSlot:quote.timeSlot}:{}), productId: product.id,variantId:input.variantId, ...(input.locale?{locale:input.locale}:{}),productName: view.name, variantName: variant.name, date: input.date,
         ...(quote.onlineDiscount?{onlineDiscount:quote.onlineDiscount}:{}),...(discount?{discount:{code:discount.code,amount:discount.amount,subtotal:discount.subtotal}}:{}),total: netTotal, lines: quote.lines, demo: false, conditions: variant.conditions || {},
         policy: input.locale==='en'?'Your booking is recorded immediately. JinMemo will send your tickets by email after processing. Booking confirmation does not mean payment has been received or tickets have been issued. Follow the payment instructions provided for your booking.':'Đơn đặt vé được ghi nhận ngay. JinMemo sẽ gửi vé qua email sau khi xử lý. Xác nhận đặt vé không đồng nghĩa đã thanh toán hoặc đã xuất vé. Thanh toán theo hướng dẫn của đơn hàng.' };
       const code = 'JM' + randomBytes(5).toString('hex').toUpperCase();
       const id=randomUUID();const customerAccessKey=pos?randomBytes(32).toString('hex'):input.accessKey;
       await client.query('INSERT INTO jinmemo_orders(id,code,request_id,request_hash,access_hash,snapshot,contact,booking_status) VALUES ($1,$2,$3,$4,$5,$6,$7,\'CONFIRMED\')',
         [id, code, input.requestId, requestHash, hash(customerAccessKey), JSON.stringify(snapshot),JSON.stringify(input.contact)]);
+      if(trip)await client.query('INSERT INTO jinmemo_transport_jobs(order_id,visit_date)VALUES($1,$2)',[id,input.date]);
       await this.inventory.allocate(client,id,product.id,input.variantId,input.date,quote.timeSlot?.id||'',quantity);
       if(discount)await this.vouchers.allocate(client,id,discount.id);
       if(pos){await client.query('INSERT INTO jinmemo_pos_orders(order_id,counter_id,admin_id)VALUES($1,$2,$3)',[id,pos.counterId,pos.adminId]);await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)',[randomUUID(),pos.adminId,'pos.order-create',id]);}
@@ -83,7 +87,8 @@ export class OrdersService {
     const issued = tickets.rows.reduce((sum: number, ticket: { covers: number }) => sum + ticket.covers, 0);
     const totalGuests = row.snapshot.lines.reduce((sum, line) => sum + line.quantity, 0);
     const cart=(await client.query('SELECT c.code FROM jinmemo_cart_orders m JOIN jinmemo_carts c ON c.id=m.cart_id WHERE m.order_id=$1',[row.id])).rows[0];
-    const response = { ...(cart?{cartCode:cart.code}:{}),id: row.id, code: row.code, snapshot: row.snapshot, bookingStatus: row.booking_status, paymentStatus: row.payment_status,
+    const transportJob=row.snapshot.transport?(await client.query('SELECT status,data FROM jinmemo_transport_jobs WHERE order_id=$1',[row.id])).rows[0]:undefined;
+    const response = { ...(transportJob?{transportStatus:transportJob.status,...(transportJob.status!=='PENDING'?{transportDriver:{name:transportJob.data.driver,phone:transportJob.data.phone,plate:transportJob.data.plate}}:{})}:{}), ...(cart?{cartCode:cart.code}:{}),id: row.id, code: row.code, snapshot: row.snapshot, bookingStatus: row.booking_status, paymentStatus: row.payment_status,
       fulfillmentStatus: issued === 0 ? 'PENDING' : issued >= totalGuests ? 'DELIVERED' : 'PARTIAL', tickets: tickets.rows,
       version: row.version, createdAt: row.created_at, deliveredGuests: issued, totalGuests, instructions: row.instructions };
     if (!admin) return response;

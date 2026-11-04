@@ -132,3 +132,6 @@ CREATE TABLE IF NOT EXISTS jinmemo_contact_requests(id text PRIMARY KEY, data js
       CREATE TABLE IF NOT EXISTS jinmemo_mail_outbox(id text PRIMARY KEY,order_id text NOT NULL REFERENCES jinmemo_orders(id),event text NOT NULL,status text NOT NULL DEFAULT 'PENDING',attempts integer NOT NULL DEFAULT 0,next_at timestamptz NOT NULL DEFAULT now(),last_error text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),sent_at timestamptz);
       CREATE INDEX IF NOT EXISTS jinmemo_mail_order_history ON jinmemo_mail_outbox(order_id,created_at DESC,id DESC);
       CREATE INDEX IF NOT EXISTS jinmemo_partner_ledger_owner ON jinmemo_partner_ledger(partner_id);
+
+CREATE TABLE IF NOT EXISTS jinmemo_transport_jobs(order_id text PRIMARY KEY REFERENCES jinmemo_orders(id),visit_date text NOT NULL,status text NOT NULL DEFAULT 'PENDING',data jsonb NOT NULL DEFAULT '{}',version integer NOT NULL DEFAULT 1);
+CREATE INDEX IF NOT EXISTS jinmemo_transport_jobs_date ON jinmemo_transport_jobs(visit_date);

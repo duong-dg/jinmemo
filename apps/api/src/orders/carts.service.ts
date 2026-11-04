@@ -121,11 +121,11 @@ export class CartsService {
     const items = [];
     for (const member of members) {
       const detail = await this.orders.get(member.order_id), canSee = publicAuth ? customerFull : context.channel !== 'POS' || context.actor!.permissions.some(p => p === 'PRINT' || p === 'DELIVER');
-      const { id, code, snapshot, bookingStatus, paymentStatus, fulfillmentStatus, tickets, version, instructions, deliveredGuests, totalGuests } = detail;
+      const { transportStatus,transportDriver,id, code, snapshot, bookingStatus, paymentStatus, fulfillmentStatus, tickets, version, instructions, deliveredGuests, totalGuests } = detail;
       const archived = 'archived' in detail ? detail.archived : false;
       let accessKey: string | undefined;
       if (customerFull && !archived && bookingStatus === 'CONFIRMED') { const key = (await this.db.pool.query('SELECT secret FROM jinmemo_order_mail_keys WHERE order_id=$1', [id])).rows[0]?.secret; if (key) accessKey = await this.mail.decrypt(key); }
-      items.push({ id, code, snapshot, bookingStatus, paymentStatus, fulfillmentStatus, version, instructions, deliveredGuests, totalGuests, archived, tickets: canSee && !archived && bookingStatus !== 'CANCELLED' ? tickets : [], ...(accessKey ? { accessKey } : {}) });
+      items.push({ transportStatus,transportDriver,id, code, snapshot, bookingStatus, paymentStatus, fulfillmentStatus, version, instructions, deliveredGuests, totalGuests, archived, tickets: canSee && !archived && bookingStatus !== 'CANCELLED' ? tickets : [], ...(accessKey ? { accessKey } : {}) });
     }
     const active = items.filter(i => !i.archived && i.bookingStatus === 'CONFIRMED'), payable = active.filter(i => i.paymentStatus === 'UNPAID').reduce((n, i) => n + i.snapshot.total, 0);
     return { code: cart.code, channel: cart.channel, version: cart.version, total: Number(cart.total), payable, settled: active.length > 0 && active.every(i => i.paymentStatus !== 'UNPAID'), items, onlinePaymentEligible: (cart.channel === 'WEB' && (!!publicAuth || context.channel === 'WEB') || !publicAuth && (context.channel === 'CTV' || context.channel === 'ADMIN' && cart.channel === 'POS' || context.channel === 'POS' && context.actor?.permissions.includes('COLLECT'))) && active.some(i => i.paymentStatus === 'UNPAID') && payable > 0, ...(publicAuth && cart.channel === 'POS' && !customerFull ? { ticketAccess: 'EMAIL_LINK' } : {}) };
