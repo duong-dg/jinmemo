@@ -6,3 +6,5 @@ test('localized blog/destination sections, English filters and per-entity langua
 
 // Content pages use translated URL sections, while per-page slugs come from localePaths.
 test("custom page and contact URL sections",()=>{assert.equal(localizedPath("/lien-he","en"),"/en/contact");assert.equal(localizedPath("/trang/chinh-sach","en"),"/en/pages/chinh-sach");assert.equal(unlocalizedPath("/en/pages/privacy"),"/trang/privacy");assert.equal(unlocalizedPath("/en/contact"),"/lien-he");});
+
+test('transfer listings preserve both language directions',()=>{assert.equal(localizedPath('/dat-xe','en'),'/en/transfers');assert.equal(unlocalizedPath('/en/transfers'),'/dat-xe');assert.equal(localizedPath('/en/transfers','vi'),'/dat-xe');});

@@ -32,3 +32,6 @@
 /* JinMemo wordmark leaves fixed touch targets for menu, language and cart. */
 @media(max-width:600px){.header .logo{font-size:28px}.header .public-mobile-menu{flex:0 0 38px}.header .public-mobile-menu summary{display:flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0}.header .public-mobile-menu summary span{display:none}}
 @media(max-width:360px){.header .logo{font-size:26px}.header-inner{gap:7px}}
+
+/* Keep the header aligned when switching between short and long pages. */
+html{scrollbar-gutter:stable}

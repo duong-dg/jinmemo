@@ -11,7 +11,7 @@ export function LanguageSwitcher(){
  const[available,setAvailable]=useState<{path:string;languages:string[];paths?:Partial<Record<'vi'|'en',string>>}|null>(null);
  const detail=/^\/(ve|cam-nang|loai|diem-den|trang)\/([^/]+)$/.exec(path);
  const contact=path==='/lien-he';
- const supported=contact||['/','/cam-nang','/dat-ve','/tra-cuu','/gio-hang','/diem-den'].includes(path)||!!detail;
+ const supported=contact||['/','/cam-nang','/dat-xe','/dat-ve','/tra-cuu','/gio-hang','/diem-den'].includes(path)||!!detail;
  useEffect(()=>{setOpen(false);},[pathname]);
  useEffect(()=>{if(!open)return;const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!root.current?.contains(event.target))setOpen(false);};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setOpen(false);trigger.current?.focus();}};document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};},[open]);
  useEffect(()=>{if(!detail&&!contact){setAvailable(null);return;}const controller=new AbortController();setAvailable(null);const section=detail?{trang:'site/pages',ve:'products','cam-nang':'posts',loai:'product-types','diem-den':'destinations'}[detail[1]]:'site';
