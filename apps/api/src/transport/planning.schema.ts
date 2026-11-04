@@ -3,7 +3,7 @@ import {validateDate} from '../pricing/pricing';
 const id=z.string().min(1).max(80),name=z.string().trim().min(1).max(150),money=z.number().int().min(0).max(100000000),time=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),date=z.string().refine(v=>{try{validateDate(v);return true;}catch{return false;}},'Ngày không hợp lệ');
 export const planSchema=z.object({
  enabled:z.boolean().default(false),
- vehicles:z.array(z.object({id,name,seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict()).max(20),
+ vehicles:z.array(z.object({id,name,sharedSizes:z.array(z.number().int().min(2).max(60)).max(5).optional(),seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict().transform(v=>({...v,sharedSizes:v.sharedSizes??(v.seats>=6?[3,4]:v.seats>=2?[2]:[])}))).max(20),
  areas:z.array(z.object({id,name,parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(1000),
  fares:z.array(z.object({id,from:id,to:id,vehicleId:id,privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
  trips:z.array(z.object({id,from:id,to:id,vehicleId:id,date,start:time,end:time,departure:time,cutoffMinutes:z.number().int().min(0).max(1440),seatPrice:money,status:z.enum(['DRAFT','OPEN','CLOSED'])}).strict()).max(200),
@@ -11,6 +11,7 @@ export const planSchema=z.object({
 }).strict().superRefine((p,ctx)=>{
  const fail=(message:string)=>ctx.addIssue({code:'custom',message});
  for(const rows of [p.vehicles,p.areas,p.fares,p.trips,p.requests])if(new Set(rows.map(r=>r.id)).size!==rows.length)fail('Mã mục bị trùng.');
+ for(const v of p.vehicles)if(v.sharedSizes.some(n=>n>v.seats)||new Set(v.sharedSizes).size!==v.sharedSizes.length)fail('Số người nhóm ghép phải khác nhau và không vượt sức chứa xe.');
  const area=(id:string)=>p.areas.some(a=>a.id===id),vehicle=(id:string)=>p.vehicles.find(v=>v.id===id);
  for(const a of p.areas){if(a.parentId&&!area(a.parentId))fail('Khu vực cha không tồn tại.');const seen=new Set<string>([a.id]);let parent=a.parentId;while(parent){if(seen.has(parent)){fail('Cây khu vực bị vòng lặp.');break;}seen.add(parent);parent=p.areas.find(x=>x.id===parent)?.parentId;}for(const key of Object.keys(a.surcharges))if(!vehicle(key))fail('Phụ thu tham chiếu loại xe không tồn tại.');}
  for(const row of [...p.fares,...p.trips,...p.requests]){if(!area(row.from)||!area(row.to)||row.from===row.to)fail('Chọn điểm đi/đến hợp lệ và khác nhau.');if('vehicleId'in row&&!vehicle(row.vehicleId))fail('Loại xe không tồn tại.');}

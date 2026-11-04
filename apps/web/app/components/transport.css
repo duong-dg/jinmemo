@@ -11,3 +11,5 @@
 @media(max-width:600px){.ride-search{padding:18px}.ride-route-fields{grid-template-columns:1fr;gap:14px}.ride-area-search{padding:0;border:0}.ride-search-grid{grid-template-columns:1fr 1fr}.ride-search-grid>label{padding:0}.ride-search-grid .ride-search-button{grid-column:1/-1;width:100%}.ride-search-grid input,.ride-search-grid select{font-size:16px}.ride-area-results{width:100%;max-width:100%}}
 
 .ride-search-grid label{white-space:nowrap}
+
+.status-MATCHED{background:#dff1e2;color:#276c3d}.ride-group-info{background:#edf5ef;padding:10px;border-radius:9px}

@@ -148,3 +148,8 @@ CREATE TABLE IF NOT EXISTS jinmemo_ride_bookings(
 );
 CREATE INDEX IF NOT EXISTS jinmemo_ride_bookings_trip ON jinmemo_ride_bookings(trip_id);
 CREATE INDEX IF NOT EXISTS jinmemo_ride_bookings_date ON jinmemo_ride_bookings(visit_date);
+
+CREATE TABLE IF NOT EXISTS jinmemo_ride_pools(id text PRIMARY KEY,visit_date text NOT NULL,from_id text NOT NULL,to_id text NOT NULL,vehicle_id text NOT NULL,departure text NOT NULL,target integer NOT NULL,total bigint NOT NULL,status text NOT NULL DEFAULT 'OPEN',data jsonb NOT NULL DEFAULT '{}',version integer NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS jinmemo_ride_pools_day ON jinmemo_ride_pools(visit_date,vehicle_id);
+CREATE TABLE IF NOT EXISTS jinmemo_admin_notifications(id bigserial PRIMARY KEY,kind text NOT NULL,code text NOT NULL,href text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS jinmemo_admin_notification_reads(admin_id text PRIMARY KEY,last_id bigint NOT NULL DEFAULT 0);

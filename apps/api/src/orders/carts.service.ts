@@ -104,6 +104,7 @@ export class CartsService {
       }
       await this.mail.enqueue(client, anchor, 'CART_CREATED', 1);
       await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)', [randomUUID(), context.partnerId ? 'partner:' + context.partnerId : actor?.id || 'customer', 'cart.create', id]);
+      await client.query('INSERT INTO jinmemo_admin_notifications(kind,code,href)VALUES($1,$2,$3)',['TICKET',code,'/admin/don-hang?cart='+code]);
       await client.query('COMMIT');
       return { code, ...(context.channel === 'WEB' ? { accessKey: input.accessKey } : {}) };
     } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }

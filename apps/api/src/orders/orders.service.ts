@@ -68,6 +68,7 @@ export class OrdersService {
       await client.query('INSERT INTO jinmemo_orders(id,code,request_id,request_hash,access_hash,snapshot,contact,booking_status) VALUES ($1,$2,$3,$4,$5,$6,$7,\'CONFIRMED\')',
         [id, code, input.requestId, requestHash, hash(customerAccessKey), JSON.stringify(snapshot),JSON.stringify({...input.contact,...(paymentChoice?{paymentPreferenceLabel:paymentChoice}:{})})]);
       if(trip)await client.query('INSERT INTO jinmemo_transport_jobs(order_id,visit_date)VALUES($1,$2)',[id,input.date]);
+      if(!tx?.silent)await client.query('INSERT INTO jinmemo_admin_notifications(kind,code,href)VALUES($1,$2,$3)',['TICKET',code,'/admin/don-hang?order='+id]);
       await this.inventory.allocate(client,id,product.id,input.variantId,input.date,quote.timeSlot?.id||'',quantity);
       if(discount)await this.vouchers.allocate(client,id,discount.id);
       if(pos){await client.query('INSERT INTO jinmemo_pos_orders(order_id,counter_id,admin_id)VALUES($1,$2,$3)',[id,pos.counterId,pos.adminId]);await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)',[randomUUID(),pos.adminId,'pos.order-create',id]);}

@@ -45,6 +45,7 @@ test('multi-package basket across web, POS and CTV: one checkout, atomic validat
     let r = await call('/carts', input); assert.equal(r.status, 201); const first = await r.json(); assert.match(first.code, /^JC/); assert.equal(first.accessKey, input.accessKey);
     assert.equal((await (await call('/carts', input)).json()).code, first.code); assert.equal((await pool.query('SELECT id FROM jinmemo_orders')).rowCount, 6);
     assert.equal((await call('/carts', { ...input, contact: { ...input.contact, note: 'Changed' } })).status, 409);
+    assert.equal((await pool.query("SELECT id FROM jinmemo_admin_notifications WHERE kind='TICKET'")).rowCount,2,'one notification per cart, none for child orders or duplicate retry');assert.equal((await pool.query('SELECT href FROM jinmemo_admin_notifications WHERE code=$1',[first.code])).rows[0].href,'/admin/don-hang?cart='+first.code);
     assert.equal((await pool.query("SELECT id FROM jinmemo_mail_outbox WHERE event='CART_CREATED'")).rowCount, 2); assert.equal((await pool.query("SELECT id FROM jinmemo_mail_outbox WHERE event='CREATED'")).rowCount, 0);
     const sent: any[] = [], mail = module.get(MailService);
     (mail as any).transport = async () => ({ sendMail: async (message: any) => { sent.push(message); }, close() {} });
