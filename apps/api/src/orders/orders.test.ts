@@ -1,0 +1,62 @@
+process.env.NODE_ENV='test';
+import 'reflect-metadata';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { randomBytes,randomUUID } from 'node:crypto';
+import { Test } from '@nestjs/testing';
+import { ValidationPipe } from '@nestjs/common';
+import { newDb } from 'pg-mem';
+import { AppModule } from '../app.module';
+
+test('immediate booking → collect → partial/full delivery; optional instructions, access control and retries',async()=>{
+  process.env.ADMIN_EMAIL='orders@example.test';process.env.ADMIN_PASSWORD='orders-integration-test-123';process.env.PUBLIC_BASE_URL='http://localhost:3000';
+  const memory=newDb({noAstCoverageCheck:true});const adapter=memory.adapters.createPg();const pool=new adapter.Pool();
+  const module=await Test.createTestingModule({imports:[AppModule]}).overrideProvider('DB_POOL').useValue(pool).compile();
+  const app=module.createNestApplication();app.setGlobalPrefix('api/v1');app.useGlobalPipes(new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true}));await app.listen(0,'127.0.0.1');const base=await app.getUrl()+'/api/v1';
+  let cookie='';const call=(path:string,body?:unknown,admin=false)=>fetch(base+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-JinMemo-Admin':'1',Origin:'http://localhost:3000',...(admin?{Cookie:cookie}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  try{
+    let res=await call('/admin/login',{email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});assert.equal(res.status,201);cookie=res.headers.get('set-cookie')!.split(';')[0];
+    const product=(await(await call('/admin/products',undefined,true)).json()).data[0];
+    const input={requestId:randomUUID(),accessKey:randomBytes(32).toString('hex'),productId:product.id,variantId:product.variants[0].id,date:'2099-06-01',quantities:{ADULT:2},expectedTotal:product.variants[0].prices.ADULT*2,contact:{name:'Test Guest',phone:'0901234567',email:'guest@example.test',note:''},accepted:true};
+    assert.equal((await call('/orders',input)).status,400,'demo products must not take orders');
+    product.demo=false;await call('/admin/products',product,true);
+    assert.equal((await call('/orders',{...input,expectedTotal:1})).status,409,'client cannot alter price');
+    assert.equal((await call('/orders',{...input,date:'2020-01-01'})).status,400);
+    res=await call('/orders',input);assert.equal(res.status,201);const result=await res.json();assert.match(result.code,/^JM[A-F0-9]{10}$/);
+    assert.equal((await(await call('/orders',input)).json()).code,result.code,'retry should return same order');
+    assert.equal((await call('/orders',{...input,contact:{...input.contact,name:'Another'}})).status,409);
+    const lookup={code:result.code,accessKey:input.accessKey};
+    assert.equal((await call('/orders/lookup',{code:result.code})).status,400);
+    assert.equal((await call('/orders/lookup',{code:result.code,email:'wrong@example.test'})).status,404);
+    const emailLookup=await call('/orders/lookup',{code:result.code,email:'GUEST@example.test'});assert.equal(emailLookup.status,201);const emailResult=await emailLookup.json();assert.equal(emailResult.code,result.code);assert.equal(emailResult.contact,undefined);assert.equal(emailResult.accessKey,undefined);
+    assert.equal((await call('/orders/lookup',{...lookup,accessKey:'a'.repeat(64)})).status,404);
+    let guest=await(await call('/orders/lookup',lookup)).json();assert.equal(guest.contact,undefined);assert.equal(guest.bookingStatus,'CONFIRMED');assert.equal(guest.paymentStatus,'UNPAID');assert.equal(guest.tickets.length,0);
+    assert.equal((await call('/admin/orders')).status,401);
+    const row=(await(await call('/admin/orders',undefined,true)).json()).data[0];const id=row.id;
+    const act=(body:unknown,admin=true)=>call(`/admin/orders/${id}/actions`,body,admin);
+    assert.equal((await act({requestId:randomUUID(),version:1,action:'DELIVER',tickets:[{code:'UNPAID-TEST',kind:'SUPPLIER_CODE',covers:2,note:''}],note:'test'})).status,409,'booking confirmation does not count as payment');
+    const confirm={requestId:randomUUID(),version:1,action:'INSTRUCTIONS',instructions:'Test supplier confirmed; transfer instructions and cancellation policy.',note:'Supplier confirmed'};
+    assert.equal((await act(confirm,false)).status,401);res=await act(confirm);assert.equal(res.status,201);
+    assert.equal((await(await act(confirm)).json()).version,2,'instruction retry is idempotent');
+    assert.equal((await act({...confirm,requestId:randomUUID()})).status,409,'stale version blocked');
+    const pay={requestId:randomUUID(),version:2,action:'PAY',amount:input.expectedTotal,reference:'tx-001',note:'Checked bank statement'};
+    assert.equal((await act({...pay,amount:1})).status,400);res=await act(pay);assert.equal(res.status,201);assert.equal((await res.json()).paymentStatus,'PAID');
+    assert.equal((await(await act(pay)).json()).version,3);
+    assert.equal((await act({requestId:randomUUID(),version:3,action:'CANCEL',note:'Cannot erase paid order'})).status,409);
+    const delivery={requestId:randomUUID(),version:3,action:'DELIVER',note:'Provider code received',tickets:[{code:'TEST-CODE-001',kind:'SUPPLIER_CODE',covers:1,note:'Use original supplier instructions'}]};
+    res=await act(delivery);assert.equal(res.status,201);let detail=await res.json();assert.equal(detail.fulfillmentStatus,'PARTIAL');assert.equal(detail.deliveredGuests,1);
+    assert.equal((await(await act(delivery)).json()).tickets.length,1);
+    res=await act({...delivery,requestId:randomUUID(),version:4,tickets:[{...delivery.tickets[0],code:'TEST-CODE-002'}]});assert.equal(res.status,201);detail=await res.json();assert.equal(detail.fulfillmentStatus,'DELIVERED');
+    assert.equal((await act({...delivery,requestId:randomUUID(),version:5})).status,400,'cannot issue extra seats');
+    guest=await(await call('/orders/lookup',lookup)).json();assert.equal(guest.tickets.length,2);assert.equal(guest.paymentStatus,'PAID');assert.match(guest.instructions,/Test supplier/);
+    assert.equal((await pool.query('SELECT * FROM jinmemo_order_payments')).rows.length,1);assert.equal((await pool.query('SELECT * FROM jinmemo_order_actions')).rows.length,4);
+    const pendingInput={...input,requestId:randomUUID(),accessKey:randomBytes(32).toString('hex')};await call('/orders',pendingInput);
+    const pendingRow=(await(await call('/admin/orders',undefined,true)).json()).data.find((r:{id:string})=>r.id!==id);
+    res=await call(`/admin/orders/${pendingRow.id}/actions`,{requestId:randomUUID(),version:1,action:'CANCEL',note:'No supplier availability'},true);assert.equal(res.status,201);assert.equal((await res.json()).bookingStatus,'CANCELLED');
+    const directInput={...input,requestId:randomUUID(),accessKey:randomBytes(32).toString('hex')};const direct=await(await call('/orders',directInput)).json();const directRow=(await(await call('/admin/orders',undefined,true)).json()).data.find((r:{code:string})=>r.code===direct.code);assert.equal(directRow.booking_status,'CONFIRMED');assert.equal((await call(`/admin/orders/${directRow.id}/actions`,{requestId:randomUUID(),version:1,action:'PAY',amount:input.expectedTotal,reference:'DIRECT-PAY-TEST',note:'TEST payment; no source confirmation step'},true)).status,201);assert.equal((await call(`/admin/orders/${directRow.id}/actions`,{requestId:randomUUID(),version:2,action:'DELIVER',tickets:[{code:'DIRECT-DELIVERY-TEST',kind:'SUPPLIER_CODE',covers:2,note:''}],note:'TEST delivery after payment'},true)).status,201);
+
+    assert.equal((await call('/admin/orders?archived=true')).status,401);const archive={requestId:randomUUID(),version:5,action:'ARCHIVE',note:'TEST paid archive'};assert.equal((await act(archive,false)).status,401);res=await act(archive);assert.equal(res.status,201);detail=await res.json();assert.equal(detail.archived,true);assert.equal(detail.paymentStatus,'PAID');assert.equal(detail.tickets.length,2);assert.equal((await(await act(archive)).json()).version,6);assert.equal((await(await call('/admin/orders',undefined,true)).json()).data.some((r:any)=>r.id===id),false);assert.equal((await(await call('/admin/orders?archived=true',undefined,true)).json()).data.some((r:any)=>r.id===id),true);assert.equal((await(await call('/orders/lookup',lookup)).json()).tickets.length,2);assert.equal((await act({requestId:randomUUID(),version:6,action:'INSTRUCTIONS',instructions:'Not while archived',note:'TEST'})).status,409);res=await act({requestId:randomUUID(),version:6,action:'RESTORE',note:'TEST restore'});assert.equal(res.status,201);assert.equal((await res.json()).archived,false);
+    const trashInput={...input,requestId:randomUUID(),accessKey:randomBytes(32).toString('hex')};const trash=await(await call('/orders',trashInput)).json();const trashRow=(await(await call('/admin/orders',undefined,true)).json()).data.find((r:any)=>r.code===trash.code);res=await call(`/admin/orders/${trashRow.id}/actions`,{requestId:randomUUID(),version:1,action:'ARCHIVE',note:'TEST unpaid delete'},true);assert.equal(res.status,201);assert.equal((await res.json()).bookingStatus,'CANCELLED');assert.equal((await(await call('/orders/lookup',{code:trash.code,accessKey:trashInput.accessKey})).json()).bookingStatus,'CANCELLED');res=await call(`/admin/orders/${trashRow.id}/actions`,{requestId:randomUUID(),version:2,action:'RESTORE',note:'TEST restore cancelled order'},true);assert.equal(res.status,201);detail=await res.json();assert.equal(detail.bookingStatus,'CANCELLED');assert.equal(detail.archived,false);assert.equal(detail.paymentStatus,'UNPAID');
+
+  }finally{await app.close();}
+});

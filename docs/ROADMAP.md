@@ -1,0 +1,49 @@
+# JinMemo — tiến độ để đưa vào vận hành
+
+## Đã có
+
+- Vé/tour, loại sản phẩm, cây điểm đến, ảnh/nội dung, lịch giá theo nhóm khách/ngày/mùa, khóa ngày và suất giờ.
+- Đặt vé, thu đủ chuyển khoản/tiền mặt thủ công, mã vé từng phần hoặc hàng loạt, in phiếu, tra cứu và email có hàng đợi thử lại.
+- Tồn dùng chung Web/POS/CTV, cấp theo ngày/suất; hủy đơn chưa thu trả tồn, có chuyển dữ liệu đơn cũ.
+- POS riêng, tài khoản nhân viên và quyền theo quầy; giá CTV trực tiếp, hạn mức/công nợ/trả nợ.
+- Blog/chuyên mục/SEO, Việt–Anh và quản trị bản dịch; nhân bản sản phẩm thành nháp.
+- Tìm/lọc/phân trang đơn toàn bộ dữ liệu, xuất CSV, báo cáo doanh thu vận hành.
+- Nhà cung cấp: hồ sơ nội bộ, liên kết sản phẩm, lưu trữ có kiểm tra tham chiếu (0.16).
+
+## Các hạng mục tiếp theo
+
+1. **Kho mã và file vé riêng tư:** đã có gắn PDF/ảnh vào mã vé đã giao của đơn web/POS, tải có xác thực, thu hồi và nhật ký (0.34). Đã có kho mã theo nguồn/NCC/gói, nhập và chặn trùng, khóa/mở mã, chọn mã từ nguồn đã phân bổ để giao đơn (0.35). Đã có file CTV, quyền cho khách tải từng file và thu hồi link nhận vé (0.36). Còn tự chọn mã và mã nhóm trong kho. Không dùng thư viện ảnh công khai cho file vé.
+2. **Hoàn hủy:** yêu cầu hủy, ghi xác nhận nhà cung cấp, vô hiệu hóa mã theo khả năng đối tác, hoàn tiền đúng người mua hoặc CTV, điều chỉnh sổ công nợ và báo cáo. Tách trạng thái yêu cầu/đã hoàn; không coi bấm hủy là ngân hàng đã trả tiền.
+3. **Ca quầy:** đã có mở/chốt ca, tiền đầu ca, khoản thu CASH/BANK gắn theo ca, bàn giao/chênh lệch, quyền SHIFT và snapshot/audit (0.21). Đã thêm in biên bản bàn giao/phụ lục và xuất khoản thu CSV (0.24). Đã có bổ sung/rút/chi tiền mặt, chứng từ, sổ thu/chi CSV và biên bản có tổng điều chỉnh (0.27). Còn xác nhận người nhận bàn giao và chỉnh sai theo chứng từ.
+4. **Giá vốn/đối soát nhà cung cấp:** đã có lô nhiều NCC, phân bổ giá vốn, công nợ/ghi tiền trả và lợi nhuận gộp (0.19). Đã có cảnh báo nguồn sắp hết/hết hạn và danh sách đơn thiếu nguồn (0.20). Đã thêm sổ đối soát theo kỳ, đầu/cuối kỳ, số dư chạy và CSV (0.25). Đã có nguồn lấy theo đơn không nhập số lượng, giá vốn/công nợ theo số vé chốt và sổ mua bất biến (0.29). Đã có sửa/thùng rác nguồn giữ giá vốn cũ (0.30), lịch sử lấy vé theo nguồn và CSV riêng (0.31). Còn trả trước, xác nhận/chỉnh chứng từ và điều chỉnh hoàn tiền; không làm trả lô vì vé nhập không được trả NCC. Thiết kế đã có: lưu nguồn cung và giá vốn theo thời điểm bán; báo cáo phải giữ đúng lịch sử khi đổi nhà cung cấp sản phẩm. Liên kết sản phẩm là nguồn mặc định; nguồn/giá vốn thực tế theo từng lô phân bổ.
+5. **Khuyến mãi/voucher:** đã có cấu hình và checkout web bán lẻ, giữ/trả lượt và snapshot tiền giảm (0.18). Đã thêm điều kiện sản phẩm/gói (0.23). Đã có khoảng ngày sử dụng và thứ áp dụng, kiểm tra khi báo giá/lập đơn (0.26). Còn điều kiện kênh, cộng dồn, khuyến mãi CTV/POS và hoàn tiền: thời hạn, điều kiện gói/ngày/kênh, giới hạn lượt, chống dùng trùng và quy tắc với giá CTV.
+6. **Cổng thanh toán:** đã có adapter VNPay / SePay, cấu hình admin, TEST/LIVE, kiểm chữ ký/API Key, chống trùng, đối chiếu tiền và nhật ký REVIEW (0.32). Đã có nhật ký đối soát toàn bộ với lọc, tìm mã đơn/giao dịch và phân trang (0.33). Chưa kết nối tài khoản merchant thật; cần mã/khóa để thử sandbox đầu cuối và nghiệm thu LIVE. Còn query giao dịch, tự hoàn tiền và gateway cho CTV/POS.
+7. **Nội dung/quản trị:** đã có xem trước bài nháp/Việt–Anh, lịch sử phiên bản và khôi phục thành nháp (0.22). Đã có so sánh hai phiên bản theo từng mục, Việt–Anh và xem nội dung/HTML (0.28). Còn tự lưu, thêm ngôn ngữ, trang chính sách/điều khoản và phân quyền biên tập.
+8. **Vận hành:** quy trình sao lưu cả PostgreSQL/ảnh/khóa SMTP, thử khôi phục, giám sát, giới hạn truy cập sau reverse proxy và kiểm thử mua đồng thời trên PostgreSQL thật.
+
+## Quyết định giữ nguyên
+
+- Đơn chưa thanh toán không tự hết hạn. Chưa áp dụng TTL trả tồn tự động vì luồng nhận đơn và xử lý thủ công đã được chốt.
+- API tồn/mã vé nhà cung cấp triển khai khi sản lượng đủ; giai đoạn này nhập và giao thủ công.
+- Vé đã nhập không trả lại nhà cung cấp; cảnh báo tồn/hết hạn để chủ động mua và bán.
+- Khách sạn là module sau, không ghép vào mô hình vé hiện tại. Mobile app tái sử dụng API khi web vận hành ổn định.
+- Bộ kiểm thử pg-mem không thay thế thử concurrency, backup/restore và kết nối dịch vụ thật trên máy triển khai.
+
+Danh sách này mô tả phần còn phải làm; không phải xác nhận các hạng mục chưa đánh dấu đã hoạt động.
+
+
+## Đã bổ sung giỏ vé (0.37)
+
+Web, POS và CTV có giỏ nhiều gói/sản phẩm/ngày/suất, xác nhận liên hệ chung và thanh toán/ghi nợ theo tổng. Giữ phần đơn riêng cho giao vé, nguồn, vốn và xử lý từng gói. Còn voucher chung giỏ, chỉnh nội dung giỏ đã đặt và số liệu số giỏ riêng; báo cáo hiện đếm đơn thành phần.
+
+
+## Đã bổ sung Tổng quan vận hành
+
+Admin có `/admin/tong-quan`: số đơn dùng hôm nay/ngày mai, đơn đã thu tiền hoặc ghi nợ CTV nhưng còn thiếu vé, chưa thu tiền và chờ xác nhận. Bấm để lọc, 25 dòng/trang, mở trực tiếp chi tiết đơn. Tổng hợp toàn bộ dữ liệu không bị giới hạn bởi trang đầu; loại trừ hủy/lưu trữ. Cảnh báo yêu cầu liên hệ mới, email FAILED và nhật ký thanh toán REVIEW ở LIVE; REVIEW gồm lịch sử, chưa có cơ chế xác nhận đã xem. Không thay đổi tiền/đơn/tồn. Ngày Việt Nam, cập nhật bằng nút, không tự polling.
+
+
+## Đã bổ sung lịch sử gửi email toàn bộ
+
+Admin `/admin/email` tìm theo mã đơn JM, mã đặt chỗ JC hoặc ID email; lọc trạng thái/loại, phân trang 25 dòng, mở đúng đơn, gửi lại thủ công thư FAILED bằng luồng có kiểm tra SMTP và audit hiện có. Tổng quan dẫn thẳng danh sách FAILED. Không bị giới hạn 100 thư gần nhất; lịch sử SMTP cũ vẫn giữ dạng xem nhanh. Không tạo lại booking/thanh toán/giao vé khi đọc lịch sử hoặc đưa email vào hàng đợi.
+
+- Đã bổ sung bộ sao lưu mã hóa trên Ubuntu, giữ 7 bản, admin tải về, kiểm tra toàn vẹn và thử/chuẩn bị khôi phục vào volume riêng. Cần cài timer và kiểm chứng backup/restore trên server thật; xem BACKUP-RESTORE.md.

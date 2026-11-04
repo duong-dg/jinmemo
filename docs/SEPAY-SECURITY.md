@@ -1,0 +1,97 @@
+# SePay webhook security and operations
+
+## Application behavior
+
+- LIVE settings require PUBLIC_BASE_URL with HTTPS. TLS terminates at Nginx Proxy Manager; private proxy-to-app HTTP is intentional. Do not trust browser-supplied forwarded headers for authentication or client-IP filtering.
+- OAuth tokens expire in one hour, are purpose/client/mode bound, and a changed secret invalidates prior tokens. HMAC mode requires the original body and timestamp within ±5 minutes. OAuth and HMAC are separate SePay authentication choices, not a combined requirement.
+- Validated authenticated bank payloads are encrypted in jinmemo_sepay_payloads using the existing mail encryption key. One original payload per mode/transaction ID; no Authorization/token stored. Keep the encryption key and database together in encrypted backups. Payloads older than 90 days are removed on the next authenticated valid webhook, at most hourly per API process; accounting events remain. There is no unauthenticated payload storage.
+- Database UNIQUE event ID is claimed within the settlement transaction before order locks. Simultaneous identical notifications serialize on the claim; same ID with conflicting settlement fields returns 409. The claim rolls back with the accounting transaction on failure. There is no “received” marker that permanently skips failed processing.
+- Exact amount, destination bank/account, payment code when present, intent, order/cart eligibility and credential checks precede settlement. Expired intents go to REVIEW for manual reconciliation, never automatic receipt. Unknown inbound payment codes also enter REVIEW and return success once recorded.
+- HTTP 200 {success:true} is sent only after durable processing/review; transfers out are archived but do not credit orders. Invalid auth/payload returns 401/400; storage failures return 5xx for SePay retry. No PDF work or SMTP network call runs inside the webhook: email is enqueued transactionally. This remains synchronous database processing, not a new queue; monitor response times below 30 seconds.
+- Structured API logs for token and bank-webhook include requestId, status, durationMs and a bounded error code. X-JinMemo-Webhook-Request correlates the response. No body, credential, token or bank balance is logged by this instrumentation. Existing server errors may still have stack traces; restrict log access.
+
+## Nginx Proxy Manager — optional source IP enforcement
+
+Ready-to-paste config: deploy/nginx/sepay-npm.conf. It has NOT been installed on the live proxy by this code change.
+
+1. On proxyserver, open JinMemo Proxy Host (jinmemo.com). Back up existing Advanced text; use valid SSL and Force SSL. Keep the host Publicly Accessible: customer pages are public.
+2. The snippet checks `$realip_remote_addr` (original TCP peer), not `$remote_addr`, which global real-IP settings may replace from an untrusted header. Verify that the original NPM socket address is the real external source IP. If another proxy/CDN or source NAT sits before NPM, do not install this blindly: configure real-IP trust only for those exact trusted proxies first. Never trust arbitrary X-Forwarded-For.
+3. Confirm upstream 172.16.150.171:3100 is still JinMemo. Paste the contents into this host's Advanced field. Remove/merge any existing custom locations for these exact paths to avoid duplicate-location errors. A case-insensitive regex also covers trailing slashes, matching Express routing. There are two restricted endpoint families: token and bank webhook. Do not apply deny-all to the whole domain or payment checkout URLs.
+4. Save and verify NPM reports Online. On proxyserver run `sudo docker exec proxy-app-1 nginx -t`. If invalid, restore previous Advanced text before reloading. No firewall-wide changes are needed.
+5. In SePay test token acquisition and a simulated webhook. They should pass from all published SePay IPs. A request from a different public IP should return 403. Customer pages and normal checkout must remain reachable. Tests from your personal computer to these two endpoints will intentionally be blocked after enabling the allowlist.
+6. Restrict direct access to JinMemo port 3100 to the NPM host/private operational network. Avoid exposing API port 4000 publicly. Otherwise callers can bypass the edge allowlist (credential verification still applies).
+
+IP list source, checked 2026-10-30: https://developer.sepay.vn/vi/dia-chi-ip . Includes all seven IPv4 and two IPv6 addresses then published. Recheck regularly and after a 403 incident; no silent automatic trust-list download. This snippet applies to bank webhooks/OAuth; card IPN remains separately authenticated by its own key.
+
+## Retry and diagnosis
+
+Enable automatic retry in SePay. Published schedule: first delivery then delays 1,1,2,3,5,8,13 minutes (8 total, roughly 33 minutes). On an already successful notification, manual replay should return success without creating another payment or email. If a bank transfer reached an expired or modified order, REVIEW is expected even though SePay delivery shows success.
+
+- 400: malformed payload, unsupported grant, or incorrect token URL/request format.
+- 401: check selected auth, saved credentials, token expiry/rotation; HMAC also needs NTP.
+- 403: inspect NPM allowlist/real-IP setup; not a reason to disable authentication.
+- 404/405: exact URL / POST method.
+- 409: same external transaction ID carries different financial identity; reconcile, do not change transaction IDs just to force settlement.
+- 5xx/timeouts: restore API/database availability; SePay retries. Check API logs, NPM proxy-host-16 access/error logs and matching request time.
+
+Read-only diagnostics on JinMemo server: `sudo docker compose logs --tail=150 api`. On proxyserver: `sudo docker exec proxy-app-1 sh -c 'tail -n 100 /data/logs/proxy-host-16_access.log'`. Never paste Authorization, client secrets, tokens or decrypted payloads into support chats.
+
+After the retry window, inspect failed SePay deliveries and replay after recovery. Automated transaction-API reconciliation is not part of this adapter and needs separate SePay API credentials; do not assume webhook delivery alone guarantees all bank transactions were received. Payment journal is historical; REVIEW is not automatically cleared by later manual accounting.
+
+## Validation limits
+
+Integration tests exercise valid/invalid auth, HMAC timestamp/body changes, OAuth expiration/rotation, duplicate/conflicting IDs, expired intents, unknown/mismatched codes, encrypted payloads and recovery after a simulated storage error. They use pg-mem and do not prove PostgreSQL concurrent-lock behavior. Validate concurrent callbacks against an isolated PostgreSQL test database before a large live rollout. The NPM config needs nginx -t and real SePay test requests on the deployed proxy.
+
+References: https://developer.sepay.vn/vi/sepay-webhooks/bao-mat , https://developer.sepay.vn/vi/sepay-webhooks/tich-hop-webhook , https://developer.sepay.vn/vi/sepay-webhooks/xu-ly-loi .
+
+## Live whitelist bypass found 2026-10-30
+
+Authorized read-only probes with empty POST bodies on jinmemo.com showed:
+
+| Request | Result before fix |
+| --- | --- |
+| Token URL, no spoofed header | NPM 403 |
+| Token URL, X-Real-IP set to published SePay IP | API 400 invalid_request |
+| Webhook URL, no spoofed header | NPM 403 |
+| Webhook URL, X-Real-IP set to published SePay IP | API 401 authentication failed |
+| Webhook URL, only X-Forwarded-For spoofed | NPM 403 |
+| Webhook URL, only Forwarded spoofed | NPM 403 |
+| Customer homepage / payment options | 200 |
+
+Thus the source-IP layer was bypassable by X-Real-IP, while credential authentication remained effective. No valid token or financial payload was used. Case/trailing slash/query variants were also tested. Exact global real-IP directives have not yet been inspected; trusting a caller-controlled X-Real-IP is the observed behavior, not a guessed file location.
+
+The updated snippet gates on original `$realip_remote_addr` and forwards that same original address downstream. Replace the previous complete SePay location block; do not append a duplicate. This fix is for the current directly exposed NPM / destination-NAT topology. An upstream CDN/SNAT/proxy requires a separate trusted-peer design; do not add all internal networks as allowed SePay sources. Check nginx -t and retest both legitimate SePay and spoofed personal-client requests after installation. Repository changes do not update live NPM automatically.
+
+Inspect global trust on proxyserver without changing it:
+
+```bash
+sudo docker exec proxy-app-1 sh -c 'nginx -T 2>&1 | grep -nE "set_real_ip_from|real_ip_header|real_ip_recursive"'
+```
+
+Share only these directive lines, never the entire configuration. Audit overly broad trust such as 0.0.0.0/0, ::/0, or large private networks. Do not blindly remove entries used by other hosts without identifying their upstream proxies.
+
+Nginx original-peer documentation: https://nginx.org/en/docs/http/ngx_http_realip_module.html#embedded_variables .
+
+## Extracted code and customer status refresh
+
+The full JMP + 24 hex identifier in original bank content is the authoritative intent match. SePay `code` is an optional value extracted using merchant-configured prefixes; unrelated or truncated extracted values must not invalidate a complete matching JMP in content. If `code` itself is a full JMP identifier and contradicts content, the transfer still goes to REVIEW. Missing/multiple JMP content, wrong amounts/accounts, expired intents and duplicate-ID conflicts retain their safeguards.
+
+Existing REVIEW events are historical and are NOT automatically re-settled by replay after upgrading. For a confirmed real bank transfer, open Thanh toán → Đối soát thanh toán (`/admin/doi-soat-thanh-toan`), choose the LIVE SEPAY REVIEW entry, preview a JM/JC target, verify bank receipt/customer/total and resolve with a note. Do not pay again or force an automatic settlement by editing transaction IDs. The payment journal now supports exact JC code lookup and displays its parent basket alongside JM.
+
+Customer polling runs while the online-payment component is mounted, including the return page before a new intent exists. It checks every 5 seconds while visible, checks immediately on tab/window return, and reports lookup/network failures rather than silently swallowing them. Automatic polling is bounded to 30 minutes per mount; manual checking remains available. Expired QR display does not itself stop read-only status checks. Only a server-confirmed settled/PAID status marks payment successful.
+
+## Manual assignment of a reviewed bank transfer
+
+Admin-only POST `admin/payments/reconciliation/preview` accepts eventId and targetCode; POST `.../resolve` also requires expectedAmount, a 5–500 character note and verified:true. Only positive LIVE SEPAY REVIEW events qualify. Preview exposes customer name and booking summary, never access keys/tokens. A cart child must be addressed through its JC parent. Exact total, confirmed/unpaid/non-archived orders and unused canonical bank reference are checked again inside the transaction.
+
+Resolve locks the event, cart and sorted orders. Ledger entries, BANK payment methods, counter shift linkage, order/cart versions, transactional email outbox, immutable resolution record and audit updates commit together. Original reason and prior order association are retained in jinmemo_gateway_resolutions; the event becomes PAID and points to the resolved target. Retry with the same event/target is idempotent; another target is rejected. This is a human reconciliation of real money already received, not a new charge. Current gateway settings can be disabled or changed while staff reconcile a historical LIVE receipt. Manual reconciliation deliberately handles expired/missing intents only after explicit operator verification.
+
+The UI keeps gateway configuration separate from the journal under a Thanh toán menu group. Customer status check shows progress and a clear unpaid/network result instead of a silent click. Preview is read-only; confirmation is the financial mutation. Do not resolve production entries during UI QA. PostgreSQL locking still needs a real concurrent test environment; integration coverage uses pg-mem.
+
+## Test-mode OAuth source observed outside the published IP list
+
+Operator-provided NPM logs on 2026-10-30 show SePay-Testmode-OAuth2/1.0 token requests logged with client 103.255.238.96: success at 13:25 UTC before whitelist, 403 at 14:43 and 14:44 UTC after whitelist. The published list contains 103.255.238.139, not .96. These logs identify the failed request pattern, but neither the User-Agent nor the post-real-IP Client field proves IP ownership or original TCP peer.
+
+`deploy/nginx/sepay-npm-testmode.conf` is an optional temporary test configuration adding ONLY 103.255.238.96 to the original-peer gate, retaining OAuth and the header-spoofing fix. The production template is unchanged. Use only for the operator's controlled Test mode test; confirm the address with SePay before considering permanent production trust, then restore the production template after testing. Never allow the entire /24. If the exception still yields 403, capture the original TCP peer at the proxy rather than trusting the logged replacement IP or admitting private networks.
+
+SePay sandbox and JinMemo TEST/LIVE settings are independent. Run JinMemo in TEST with separate test credentials when receiving simulated bank transfers; a sandbox-shaped JSON payload alone is not a trustworthy environment indicator. Do not grant live-ledger semantics to an unverified test sender. Reference: https://developer.sepay.vn/vi/sepay-webhooks/test-mode/bat-dau-nhanh .

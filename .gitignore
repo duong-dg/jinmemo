@@ -1,0 +1,21 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+*.log
+apps/api/data/
+
+# Runtime data may also be created when commands start at the repository root.
+/data/
+
+# Host backup artifacts and Python bytecode
+/backups/
+**/__pycache__/
+*.pyc
+
+# Local verification artifacts
+/tmp/

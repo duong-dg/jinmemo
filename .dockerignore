@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+.git
+.env
+.env.*
+*.log
+**/data/media
+
+# Local QA fixtures, mock OTP outputs and generated previews are never shipped.
+tmp
+
+# Host backup artifacts and Python bytecode
+/backups/
+**/__pycache__/
+*.pyc

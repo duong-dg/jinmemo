@@ -1,0 +1,21 @@
+'use client';
+import{useEffect,useRef,useState}from'react';
+import{posApi}from'../../lib/pos-api';import{adminApi}from'../admin/shared/admin-api';
+import{OrderFiles}from'../admin/don-hang/order-files';import{readTicketResponse,openTicketForPrint,type TicketFile}from'../../lib/ticket-files';
+type Detail={id:string;version:number;archived?:boolean;bookingStatus:string;paymentStatus:string;totalGuests:number;deliveredGuests:number;tickets:{id:string;code:string}[]};
+export function CounterFulfillment({orderId,prefix,onChanged}:{orderId:string;prefix:'admin'|'pos';onChanged?:()=>void|Promise<void>}){
+ const api=prefix==='pos'?posApi:adminApi;
+ const[order,setOrder]=useState<Detail|null>(null),[file,setFile]=useState<File|null>(null),[files,setFiles]=useState<TicketFile[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');const input=useRef<HTMLInputElement>(null);
+ async function read(){const detail=await api('orders/'+orderId);const list=detail.bookingStatus==='CONFIRMED'&&['PAID','CREDIT'].includes(detail.paymentStatus)?await api('orders/'+orderId+'/files'):{data:[]};return{detail,list};}
+ async function load(){const{detail,list}=await read();setOrder(detail);setFiles(list.data);}
+ useEffect(()=>{let active=true;read().then(({detail,list})=>{if(active){setOrder(detail);setFiles(list.data);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[orderId,prefix]);
+ const locked=!order||!!order.archived||order.bookingStatus!=='CONFIRMED'||!['PAID','CREDIT'].includes(order.paymentStatus),batches=files.filter(f=>!f.revoked_at&&f.name.startsWith('JinMemo-lo-'));
+ return <section className="counter-fulfillment"><h3>Xuất vé JinMemo</h3><p>1. Tải file vé đối tác → 2. Tiếp → 3. In vé JinMemo</p>
+ {!order&&!error&&<p>Đang tải…</p>}{order&&locked&&<p>Hoàn tất thanh toán để đính kèm và in vé.</p>}
+ {order&&!locked&&order.deliveredGuests<order.totalGuests&&<form onSubmit={async e=>{e.preventDefault();if(!file||busy)return;setBusy(true);setError('');setNotice('');let completed=false;try{const body=new FormData();body.set('version',String(order.version));body.set('file',file);const response=await fetch('/api/v1/'+prefix+'/orders/'+orderId+'/files/batch',{method:'POST',headers:{'X-JinMemo-Admin':'1','X-JinMemo-POS':'1'},body}),result=await readTicketResponse(response);completed=true;setFile(null);if(input.current)input.current.value='';setNotice(result.duplicate?'File này đã được xuất vé. Có thể in lại phía dưới.':'Đã tạo '+result.count+' vé JinMemo. File vé gốc đã được xếp hàng gửi email cho khách khi SMTP bật.');await load();await onChanged?.();}catch(e){setError((completed?'Đã xuất vé. Cập nhật lại để xem file: ':'')+(e as Error).message);}finally{setBusy(false);}}}><fieldset disabled={busy}><label>PDF / ảnh vé đối tác<input ref={input} type="file" required accept="application/pdf,image/png,image/jpeg,image/webp" onChange={e=>{setFile(e.target.files?.[0]||null);setError('');}}/></label><small>Mỗi QR khác nhau tạo một vé JinMemo. PDF tối đa 50 trang, file tối đa 5 MB.</small><button className="button" disabled={!file||file.size>5*1024*1024}>{busy?'Đang đọc QR và tạo vé…':'Tiếp'}</button>{file&&file.size>5*1024*1024&&<p role="alert">File vượt quá 5 MB.</p>}</fieldset></form>}
+ {notice&&<p className="admin-success" role="status">{notice}</p>}{error&&<p className="admin-error" role="alert">{error}</p>}
+ {batches.map((f,i)=><div className="order-file-actions" key={f.id}><strong>Vé JinMemo{batches.length>1?' · Lô '+(i+1):''}</strong><button type="button" className="button" disabled={busy||locked} onClick={async()=>{setError('');try{await openTicketForPrint('/api/v1/'+prefix+'/orders/'+orderId+'/files/'+f.id+'/download');}catch(e){setError((e as Error).message);}}}>In vé JinMemo</button></div>)}
+ {batches.length>0&&<small>Mở PDF rồi chọn In. Mỗi trang là một vé JinMemo kèm QR gốc của đối tác.</small>}
+ {order&&<details><summary>File đã giao và xử lý bổ sung</summary><OrderFiles key={order.id} prefix={prefix} orderId={order.id} version={order.version} remaining={order.totalGuests-order.deliveredGuests} tickets={order.tickets} locked={locked} disabled={busy} onChanged={async()=>{await load();await onChanged?.();}}/></details>}
+ </section>;
+}
