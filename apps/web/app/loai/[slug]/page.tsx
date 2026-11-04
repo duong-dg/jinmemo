@@ -1,3 +1,4 @@
+import{LoadMoreGrid}from'../../components/load-more-grid';
 import{pageShareMetadata}from'../../../lib/share-metadata';
 import { requestLocale } from '../../../lib/request-locale';
 import { translator, localizedPath, dateLocale } from '../../../lib/i18n';
@@ -28,4 +29,4 @@ export default async function TypePage({ params }: {
     }>;
 }) { const locale = await requestLocale(), t = translator(locale); const requested = (await params).slug; const type = await getType(requested); if (!type)
     notFound(); if (type.slug !== requested)
-    permanentRedirect(localizedPath(`/loai/${type.slug}`, locale)); const products = await contentApi<Product[]>(`products?type=${encodeURIComponent(type.id)}`,locale); return <main id="main" className="section"><Link className="text-link" href={localizedPath('/', locale)}>{t("← Tất cả trải nghiệm")}</Link><p className="eyebrow">{t("KHÁM PHÁ THEO CÁCH CỦA BẠN")}</p><h1>{type.name}</h1>{type.description && <p className="lead">{type.description}</p>}{!products.length && <p className="notice">{t("Các trải nghiệm thuộc nhóm này đang được cập nhật.")}</p>}<div className="cards">{products.map((product, index) => <ProductCard key={product.id} product={product} index={index} locale={locale}/>)}</div></main>; }
+    permanentRedirect(localizedPath(`/loai/${type.slug}`, locale)); const products = await contentApi<Product[]>(`products?type=${encodeURIComponent(type.id)}`,locale); return <main id="main" className="section"><Link className="text-link" href={localizedPath('/', locale)}>{t("← Tất cả trải nghiệm")}</Link><p className="eyebrow">{t("KHÁM PHÁ THEO CÁCH CỦA BẠN")}</p><h1>{type.name}</h1>{type.description && <p className="lead">{type.description}</p>}{!products.length && <p className="notice">{t("Các trải nghiệm thuộc nhóm này đang được cập nhật.")}</p>}<LoadMoreGrid key={locale+type.id} className="cards" en={locale==='en'}>{products.map((product, index) => <ProductCard key={product.id} product={product} index={index} locale={locale}/>)}</LoadMoreGrid></main>; }
