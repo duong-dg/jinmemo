@@ -4,7 +4,7 @@
 
 Trong **Sản phẩm & giá**, thêm sản phẩm cho từng tuyến. Tạo loại sản phẩm “Đưa đón / đặt xe” nếu muốn phân loại riêng. Điểm đến, ảnh, mô tả, nội dung chi tiết và bản dịch dùng trình sửa hiện có.
 
-Trong **Gói & giá → Đặt xe / đưa đón**, chọn xe riêng hoặc xe ghép; nhập nơi đi, nơi đến và số phút ngừng nhận trước giờ đi. Mỗi gói là một loại xe/dịch vụ. Điền tối đa hành khách cho từng gói.
+Trong tab **Đặt xe → Đặt xe / đưa đón**, chọn xe riêng hoặc xe ghép; nhập nơi đi, nơi đến và số phút ngừng nhận trước giờ đi. Mỗi gói là một loại xe/dịch vụ. Điền tối đa hành khách cho từng gói.
 
 - Xe riêng: giá cho cả xe/chuyến, mỗi dòng đặt một xe. Có thể tạo gói một chiều và gói khứ hồi với giá riêng. Khứ hồi yêu cầu ngày/giờ về sau giờ đi. Đặt nhiều xe cùng gói/ngày trong một dòng chưa được hỗ trợ; tạo đơn riêng. Đây là yêu cầu điều xe thủ công, chưa phải hệ thống tự kiểm tra xe rảnh của nhà xe.
 - Xe ghép: giá mỗi chỗ, mỗi chiều là một gói riêng. Bắt buộc tạo ít nhất một suất giờ tại **Lịch bán**. Vào **Tồn vé & giới hạn**, bật quản lý tồn và mở số chỗ theo gói/ngày/suất. Chưa bật giới hạn thì không nhận đơn xe ghép. Tồn được dùng chung với web, quầy, CTV; hủy đơn theo quy trình hiện có sẽ trả chỗ. Không có sơ đồ chọn ghế cụ thể.
