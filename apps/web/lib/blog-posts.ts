@@ -1,0 +1,2 @@
+export type BlogSort='newest'|'popular'|'featured';
+export function sortBlogPosts<T extends {id:string;publishedAt:string|null;updatedAt:string;views?:number;featured?:boolean}>(posts:T[],sort:BlogSort='newest'):T[]{const time=(p:T)=>new Date(p.publishedAt||p.updatedAt).getTime()||0;return posts.filter(p=>sort!=='featured'||p.featured).sort((a,b)=>(sort==='popular'?(b.views||0)-(a.views||0):0)||time(b)-time(a)||a.id.localeCompare(b.id));}

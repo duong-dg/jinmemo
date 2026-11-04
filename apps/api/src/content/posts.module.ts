@@ -1,3 +1,5 @@
+import{PostInsights}from'./post-insights';
+import{RequestLimit}from'../http/request-limit';
 import{englishSlug,reserveEnglishPost}from'./localized-slugs';
 import{comparePosts}from'./post-comparison';
 import{z}from'zod';
@@ -67,15 +69,15 @@ export class PostsService{
   }
   async restore(id:string,body:unknown,adminId:string){const parsed=z.object({version:z.number().int().min(1),revision:z.number().int().min(1)}).strict().safeParse(body);if(!parsed.success)throw new BadRequestException('Chọn phiên bản khôi phục hợp lệ.');const current=await this.byId(id);if(current.version!==parsed.data.version)throw new ConflictException('Bài viết đã thay đổi. Tải lại trước khi khôi phục.');const saved=(await this.db.pool.query('SELECT data FROM jinmemo_post_revisions WHERE post_id=$1 AND version=$2',[id,parsed.data.revision])).rows[0];if(!saved)throw new NotFoundException('Không tìm thấy phiên bản.');const payload={...saved.data,id,slug:current.slug,version:parsed.data.version,status:'DRAFT',publishedAt:null,...(saved.data.english?{english:{...saved.data.english,status:'DRAFT'}}:{})};return this.save(payload,adminId,'RESTORE');}
   async save(body:unknown,adminId:string,reason='SAVE'){
-    const parsed=postSchema.safeParse(body);if(!parsed.success)throw new BadRequestException(parsed.error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('\n'));
-    const post=parsed.data;post.contentHtml=cleanContent(post.contentHtml);
+    const parsed=postSchema.extend({views:z.number().int().nonnegative().optional()}).safeParse(body);if(!parsed.success)throw new BadRequestException(parsed.error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('\n'));
+    const{views,...post}=parsed.data;post.contentHtml=cleanContent(post.contentHtml);
     if(post.english)post.english.contentHtml=cleanContent(post.english.contentHtml);markTranslation('POST',post);
     if(post.status==='PUBLISHED'&&!post.contentHtml.replace(/<[^>]*>/g,'').trim())throw new BadRequestException('Bài xuất bản cần nội dung chữ.');
-    if(post.status==='PUBLISHED'&&!post.publishedAt)post.publishedAt=new Date().toISOString();
     await this.media.validateIds([...(post.cover?[post.cover.id]:[]),...contentImageIds(post.contentHtml),...contentImageIds(post.english?.contentHtml||'')]);
     for(const id of new Set(post.relatedProductIds)){const row=await this.db.pool.query('SELECT id FROM jinmemo_products WHERE id=$1',[id]);if(!row.rowCount)throw new BadRequestException('Sản phẩm liên quan không tồn tại.');}
     const client=await this.db.pool.connect();try{await client.query('BEGIN');await client.query("SELECT id FROM jinmemo_migrations WHERE id='041_english_urls_lock' FOR UPDATE");
       const current=post.version?await client.query('SELECT slug,data,version,updated_at FROM jinmemo_posts WHERE id=$1 FOR UPDATE',[post.id]):null;
+      if(post.status==='PUBLISHED'&&!post.publishedAt)post.publishedAt=current?.rows[0]?.data.status==='PUBLISHED'?(current.rows[0].data.publishedAt||new Date(current.rows[0].updated_at).toISOString()):new Date().toISOString();
       if(current?.rows[0]&&reason!=='TRANSLATE'&&reason!=='RESTORE'){post.english=current.rows[0].data.english;markTranslation('POST',post);}
       if(post.english&&current?.rows[0]&&current.rows[0].data.category!==post.category){const categories=await client.query('SELECT name,english_name FROM jinmemo_post_categories');post.english.category=this.categoryEnglishFrom(new Map(categories.rows.map(r=>[r.name,r.english_name])),post.category);}
       if(current?.rows[0]){const row=current.rows[0];await client.query('INSERT INTO jinmemo_post_revisions(post_id,version,data,saved_by,reason,created_at)VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(post_id,version) DO NOTHING',[post.id,row.version,JSON.stringify(row.data),'legacy','BASELINE',row.updated_at]);}
@@ -89,15 +91,17 @@ export class PostsService{
     return this.find(post.slug,true);
   }
 }
-function publicPost(post:Post&{updatedAt:string},lang?:string,categoryEnglish?:string){const{english,version,...published}=post;const languages=translated('POST',post)?['vi','en']:['vi'];return{...published,slug:lang==='en'?english?.slug||post.slug:post.slug,localePaths:{vi:'/cam-nang/'+post.slug,...(languages.includes('en')?{en:'/en/blog/'+(english?.slug||post.slug)}:{})},...(lang==='en'?{title:english!.title,excerpt:english!.excerpt,contentHtml:english!.contentHtml,category:categoryEnglish??english!.category,seoTitle:english!.seoTitle,seoDescription:english!.seoDescription,cover:post.cover?{...post.cover,alt:english!.title}:null}:{}),languages};}
+function publicPost(post:Post&{updatedAt:string;views?:number},lang?:string,categoryEnglish?:string){const{english,version,...published}=post;const languages=translated('POST',post)?['vi','en']:['vi'];return{...published,slug:lang==='en'?english?.slug||post.slug:post.slug,localePaths:{vi:'/cam-nang/'+post.slug,...(languages.includes('en')?{en:'/en/blog/'+(english?.slug||post.slug)}:{})},...(lang==='en'?{title:english!.title,excerpt:english!.excerpt,contentHtml:english!.contentHtml,category:categoryEnglish??english!.category,seoTitle:english!.seoTitle,seoDescription:english!.seoDescription,cover:post.cover?{...post.cover,alt:english!.title}:null}:{}),languages};}
 @Controller('posts')class PublicPostsController{
-  constructor(private readonly posts:PostsService){}
-  @Get()async list(@Query('lang')lang?:string){const dictionary=lang==='en'?await this.posts.categoryDictionary():new Map<string,string|null>();return{data:(await this.posts.list()).filter(post=>lang!=='en'||translated('POST',post)).map(post=>{const{contentHtml,...summary}=publicPost(post,lang,this.posts.categoryEnglishFrom(dictionary,post.category,post.english?.category));return summary;})};}
-  @Get(':slug')async detail(@Param('slug')slug:string,@Query('lang')lang?:string){const post=await this.posts.find(slug,false,lang);if(lang==='en'&&!translated('POST',post))throw new NotFoundException('Translation unavailable.');return{data:publicPost(post,lang,lang==='en'?await this.posts.categoryEnglish(post.category,post.english?.category):undefined)};}
+  private readonly limit=new RequestLimit();
+  @HttpPost(':id/view')async view(@Param('id')id:string,@Query('lang')lang:string|undefined,@Req()req:Request,@Res({passthrough:true})res:Response){this.limit.check(req,res,'post-view',120);return this.insights.record(id,req,lang);}
+  constructor(private readonly posts:PostsService,private readonly insights:PostInsights){}
+  @Get()async list(@Query('lang')lang?:string){const dictionary=lang==='en'?await this.posts.categoryDictionary():new Map<string,string|null>();return{data:(await this.insights.counts(await this.posts.list())).sort((a,b)=>new Date(b.publishedAt||b.updatedAt).getTime()-new Date(a.publishedAt||a.updatedAt).getTime()).filter(post=>lang!=='en'||translated('POST',post)).map(post=>{const{contentHtml,...summary}=publicPost(post,lang,this.posts.categoryEnglishFrom(dictionary,post.category,post.english?.category));return summary;})};}
+  @Get(':slug')async detail(@Param('slug')slug:string,@Query('lang')lang?:string){const post=await this.posts.find(slug,false,lang);if(lang==='en'&&!translated('POST',post))throw new NotFoundException('Translation unavailable.');return{data:publicPost((await this.insights.counts([post]))[0],lang,lang==='en'?await this.posts.categoryEnglish(post.category,post.english?.category):undefined)};}
 }
 @Controller('admin/posts')@UseGuards(AdminGuard)class AdminPostsController{
-  constructor(private readonly posts:PostsService){}
-  @Get()async list(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return{data:await this.posts.list(true)};}
+  constructor(private readonly posts:PostsService,private readonly insights:PostInsights){}
+  @Get()async list(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return{data:await this.insights.counts(await this.posts.list(true))};}
   @Get('categories/translations')async categoryTranslations(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return{data:await this.posts.categoryTranslations()};}
   @HttpPost('categories/translation')async categoryTranslation(@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return{data:await this.posts.saveCategoryTranslation(body,req.admin.id)};}
   @Get('categories')async categories(){return{data:await this.posts.categories()};}
@@ -110,4 +114,4 @@ function publicPost(post:Post&{updatedAt:string},lang?:string,categoryEnglish?:s
   @HttpPost('categories')async addCategory(@Body()body:unknown){return{data:await this.posts.addCategory(body)};}
   @HttpPost()async save(@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return{data:await this.posts.save(body,req.admin.id)};}
 }
-@Module({imports:[AuthModule,MediaModule],providers:[PostsService],exports:[PostsService],controllers:[PublicPostsController,AdminPostsController]})export class PostsModule{}
+@Module({imports:[AuthModule,MediaModule],providers:[PostsService,PostInsights],exports:[PostsService],controllers:[PublicPostsController,AdminPostsController]})export class PostsModule{}

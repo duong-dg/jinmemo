@@ -1,3 +1,4 @@
+import{BlogRecommendations}from'../../components/blog-recommendations';
 import{pageShareMetadata}from'../../../lib/share-metadata';
 import{breadcrumbData}from'../../../lib/seo-breadcrumbs';
 import { requestLocale } from '../../../lib/request-locale';
@@ -39,6 +40,7 @@ export default async function ArticlePage({ params }: {
     let products: Product[] = [];
     if (post.relatedProductIds.length)
         products = (await contentApi<Product[]>('products', locale)).filter(product => post.relatedProductIds.includes(product.id));
+    const recommendations=await contentApi<Post[]>('posts',locale);
     const url = new URL(localizedPath(`/cam-nang/${post.slug}`,locale), siteBase()).toString();
-    return <><ArticleView post={post} products={products} locale={locale} shareUrl={url}/><script type="application/ld+json" dangerouslySetInnerHTML={{__html:jsonLd(breadcrumbData([{name:locale==='en'?'Home':'Trang chủ',url:new URL(localizedPath('/',locale),siteBase()).toString()},{name:locale==='en'?'Travel journal':'Cẩm nang',url:new URL(localizedPath('/cam-nang',locale),siteBase()).toString()},{name:post.title,url}]))}}/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd({ '@context': 'https://schema.org', '@type': 'BlogPosting',inLanguage:locale, headline: post.title, description: post.excerpt, url, datePublished: post.publishedAt || post.updatedAt, dateModified: post.updatedAt, author: { '@type': 'Organization', name: post.author }, publisher: { '@type': 'Organization', name: 'JinMemo' }, mainEntityOfPage: url, ...(post.cover ? { image: new URL(imageUrl(post.cover), siteBase()).toString() } : {}) }) }}/></>;
+    return <><ArticleView trackViews post={post} products={products} locale={locale} shareUrl={url}/><div className="section"><BlogRecommendations posts={recommendations} currentId={post.id} locale={locale}/></div><script type="application/ld+json" dangerouslySetInnerHTML={{__html:jsonLd(breadcrumbData([{name:locale==='en'?'Home':'Trang chủ',url:new URL(localizedPath('/',locale),siteBase()).toString()},{name:locale==='en'?'Travel journal':'Cẩm nang',url:new URL(localizedPath('/cam-nang',locale),siteBase()).toString()},{name:post.title,url}]))}}/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd({ '@context': 'https://schema.org', '@type': 'BlogPosting',inLanguage:locale, headline: post.title, description: post.excerpt, url, datePublished: post.publishedAt || post.updatedAt, dateModified: post.updatedAt, author: { '@type': 'Organization', name: post.author }, publisher: { '@type': 'Organization', name: 'JinMemo' }, mainEntityOfPage: url, ...(post.cover ? { image: new URL(imageUrl(post.cover), siteBase()).toString() } : {}) }) }}/></>;
 }

@@ -135,3 +135,7 @@ CREATE TABLE IF NOT EXISTS jinmemo_contact_requests(id text PRIMARY KEY, data js
 
 CREATE TABLE IF NOT EXISTS jinmemo_transport_jobs(order_id text PRIMARY KEY REFERENCES jinmemo_orders(id),visit_date text NOT NULL,status text NOT NULL DEFAULT 'PENDING',data jsonb NOT NULL DEFAULT '{}',version integer NOT NULL DEFAULT 1);
 CREATE INDEX IF NOT EXISTS jinmemo_transport_jobs_date ON jinmemo_transport_jobs(visit_date);
+
+CREATE TABLE IF NOT EXISTS jinmemo_post_metrics(post_id text PRIMARY KEY REFERENCES jinmemo_posts(id),views bigint NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS jinmemo_post_view_keys(post_id text NOT NULL REFERENCES jinmemo_posts(id),fingerprint text NOT NULL,view_day text NOT NULL,PRIMARY KEY(post_id,fingerprint,view_day));
+CREATE INDEX IF NOT EXISTS jinmemo_post_view_keys_day ON jinmemo_post_view_keys(view_day);

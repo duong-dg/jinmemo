@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import type {Post} from '../../lib/content-api';
+import {sortBlogPosts} from '../../lib/blog-posts';
+import {localizedPath,type Locale} from '../../lib/i18n';
+import './blog-discovery.css';
+export function BlogRecommendations({posts,currentId,locale}:{posts:Post[];currentId:string;locale:Locale}){const others=posts.filter(p=>p.id!==currentId),en=locale==='en';if(!others.length)return null;return <section className="blog-recommendations" aria-label={en?'More travel stories':'Đọc thêm cẩm nang'}>{(['newest','popular'] as const).map(sort=><div key={sort}><h2>{sort==='newest'?(en?'Latest stories':'Bài viết mới nhất'):(en?'Most read':'Đọc nhiều')}</h2><ol>{sortBlogPosts(others,sort).slice(0,3).map(post=><li key={post.id}><Link href={localizedPath('/cam-nang/'+post.slug,locale)}>{post.cover&&<img src={'/api/v1/media/'+post.cover.id} alt="" width={72} height={56} loading="lazy"/>}<span><strong>{post.title}</strong><small>{sort==='popular'?`${(post.views||0).toLocaleString(en?'en-GB':'vi-VN')} ${en?'views':'lượt xem'}`:new Date(post.publishedAt||post.updatedAt).toLocaleDateString(en?'en-GB':'vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</small></span></Link></li>)}</ol></div>)}</section>;}
