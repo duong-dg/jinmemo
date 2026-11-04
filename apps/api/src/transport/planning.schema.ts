@@ -5,7 +5,7 @@ export const planSchema=z.object({
  enabled:z.boolean().default(false),
  vehicles:z.array(z.object({id,name,sharedSizes:z.array(z.number().int().min(2).max(60)).max(5).optional(),seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict().transform(v=>({...v,sharedSizes:v.sharedSizes??(v.seats>=6?[3,4]:v.seats>=2?[2]:[])}))).max(20),
  areas:z.array(z.object({id,name,parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(1000),
- fares:z.array(z.object({id,from:id,to:id,vehicleId:id,privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
+ fares:z.array(z.object({id,from:id,to:id,vehicleId:id,twoWay:z.boolean().optional(),privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
  trips:z.array(z.object({id,from:id,to:id,vehicleId:id,date,start:time,end:time,departure:time,cutoffMinutes:z.number().int().min(0).max(1440),seatPrice:money,status:z.enum(['DRAFT','OPEN','CLOSED'])}).strict()).max(200),
  requests:z.array(z.object({id,label:name,from:id,to:id,date,time,flexMinutes:z.union([z.literal(0),z.literal(30),z.literal(60)]),passengers:z.number().int().min(1).max(60),status:z.enum(['WAITING','HELD','CONFIRMED','CANCELLED']),tripId:id.optional()}).strict()).max(300)
 }).strict().superRefine((p,ctx)=>{
@@ -15,6 +15,7 @@ export const planSchema=z.object({
  const area=(id:string)=>p.areas.some(a=>a.id===id),vehicle=(id:string)=>p.vehicles.find(v=>v.id===id);
  for(const a of p.areas){if(a.parentId&&!area(a.parentId))fail('Khu vực cha không tồn tại.');const seen=new Set<string>([a.id]);let parent=a.parentId;while(parent){if(seen.has(parent)){fail('Cây khu vực bị vòng lặp.');break;}seen.add(parent);parent=p.areas.find(x=>x.id===parent)?.parentId;}for(const key of Object.keys(a.surcharges))if(!vehicle(key))fail('Phụ thu tham chiếu loại xe không tồn tại.');}
  for(const row of [...p.fares,...p.trips,...p.requests]){if(!area(row.from)||!area(row.to)||row.from===row.to)fail('Chọn điểm đi/đến hợp lệ và khác nhau.');if('vehicleId'in row&&!vehicle(row.vehicleId))fail('Loại xe không tồn tại.');}
+ for(const f of p.fares)if(f.twoWay&&p.fares.some(other=>other.id!==f.id&&other.vehicleId===f.vehicleId&&other.from===f.to&&other.to===f.from))fail('Tuyến hai chiều đã bao gồm giá chiều về; không tạo thêm giá ngược cho cùng xe.');
  const keys=p.fares.map(f=>JSON.stringify([f.from,f.to,f.vehicleId]));if(new Set(keys).size!==keys.length)fail('Một tuyến/loại xe chỉ có một giá cơ bản; chiều ngược lại là tuyến riêng.');
  for(const t of p.trips){if(t.start>t.end||t.end>t.departure)fail('Giờ đón phải theo thứ tự: bắt đầu ≤ kết thúc ≤ khởi hành.');const used=p.requests.filter(r=>r.tripId===t.id&&(r.status==='HELD'||r.status==='CONFIRMED')).reduce((n,r)=>n+r.passengers,0);if(used>(vehicle(t.vehicleId)?.seats||0))fail('Chuyến ghép vượt số ghế bán được.');}
  for(const r of p.requests){if((r.status==='HELD'||r.status==='CONFIRMED')&&!r.tripId)fail('Khách giữ chỗ/xác nhận cần được gán chuyến.');if(r.status==='WAITING'&&r.tripId)fail('Khách chờ ghép chưa được gán chuyến.');if(r.tripId){const t=p.trips.find(t=>t.id===r.tripId);if(!t)fail('Chuyến được gán không tồn tại.');else if(r.status!=='CANCELLED'&&!compatible(p,r,t))fail('Chuyến khác tuyến, ngày hoặc ngoài giờ khách chấp nhận.');}}
@@ -32,9 +33,9 @@ type PlanQuote={vehicleId:string;error?:string;fareId?:string;base?:number;surch
 export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:number){
  const starts=ancestors(p,from),ends=ancestors(p,to);if(!starts.length||!ends.length||from===to)return[];
  return p.vehicles.filter(v=>v.seats>=passengers).flatMap<PlanQuote>(v=>{
-  const candidates=p.fares.filter(f=>f.vehicleId===v.id&&starts.includes(f.from)&&ends.includes(f.to)).map(f=>({f,score:starts.indexOf(f.from)+ends.indexOf(f.to)})).sort((a,b)=>a.score-b.score);
+  const candidates=p.fares.filter(f=>f.vehicleId===v.id).flatMap(f=>{const forward=starts.includes(f.from)&&ends.includes(f.to),reverse=f.twoWay&&starts.includes(f.to)&&ends.includes(f.from);if(!forward&&!reverse)return[];const routeFrom=forward?f.from:f.to,routeTo=forward?f.to:f.from;return[{f,routeFrom,routeTo,score:starts.indexOf(routeFrom)+ends.indexOf(routeTo)}];}).sort((a,b)=>a.score-b.score);
   if(!candidates.length)return[];if(candidates[1]?.score===candidates[0].score)return[{vehicleId:v.id,error:'Có nhiều giá tuyến cùng mức ưu tiên. Cần nhập giá riêng cho tuyến này.'}];
-  const {f,score}=candidates[0];const traversed=[...starts.slice(0,starts.indexOf(f.from)),...ends.slice(0,ends.indexOf(f.to))],surcharge=traversed.reduce((n,id)=>n+(p.areas.find(a=>a.id===id)?.surcharges[v.id]||0),0);
+  const {f,score,routeFrom,routeTo}=candidates[0];const traversed=[...starts.slice(0,starts.indexOf(routeFrom)),...ends.slice(0,ends.indexOf(routeTo))],surcharge=traversed.reduce((n,id)=>n+(p.areas.find(a=>a.id===id)?.surcharges[v.id]||0),0);
   return[{vehicleId:v.id,fareId:f.id,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
  });
 }

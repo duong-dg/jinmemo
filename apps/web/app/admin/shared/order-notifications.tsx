@@ -1,8 +1,8 @@
  'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {adminApi} from './admin-api';
-type Inbox={data:{id:number;code:string;kind:string;href:string;unread:boolean}[];cursor:number;total:number;ticket:number;car:number};
-export function OrderNotifications(){const[data,setData]=useState<Inbox>(),[open,setOpen]=useState(false),[error,setError]=useState('');async function load(){try{setData(await adminApi('notifications'));setError('');}catch{setError('Chưa cập nhật được thông báo.');}}
- useEffect(()=>{void load();const timer=setInterval(()=>{if(document.visibilityState==='visible')void load();},20000);return()=>clearInterval(timer);},[]);
- return <div className="admin-notifications"><button type="button" className="outline-button" aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void load();}}>🔔 Đơn mới {data&&data.total>0&&<strong>{data.total}</strong>}</button>{open&&<section className="admin-inbox"><header><strong>Thông báo đơn hàng</strong><button className="quiet" type="button" onClick={()=>setOpen(false)} aria-label="Đóng thông báo">×</button></header>{error&&<p role="status">{error}</p>}<p>{data?.ticket||0} đơn vé mới · {data?.car||0} đơn xe mới</p>{data?.data.map(n=><a key={n.id} href={n.href} className={n.unread?'unread':''}><span>{n.kind==='CAR'?'Xe':'Vé'} · {n.code}</span><small>{n.unread?'Mới':'Đã xem'}</small></a>)}{!data?.data.length&&<p>Chưa có thông báo.</p>}<button type="button" className="outline-button" disabled={!data?.total} onClick={async()=>{try{await adminApi('notifications/read',{cursor:data!.cursor});await load();}catch{setError('Chưa đánh dấu được. Thử lại.');}}}>Đánh dấu đã xem</button></section>}</div>;
+type Counts={cursor:number;ticket:number;car:number};
+export function useOrderNotifications(active:string){const[data,setData]=useState<Counts>({cursor:0,ticket:0,car:0}),latest=useRef(data);latest.current=data;
+ async function seen(kind:'TICKET'|'CAR'){try{await adminApi('notifications/read',{cursor:latest.current.cursor,kind});const next=await adminApi('notifications');latest.current=next;setData(next);}catch{}}
+ useEffect(()=>{let stopped=false;const load=async(first=false)=>{try{const next=await adminApi('notifications');if(stopped)return;latest.current=next;setData(next);if(first&&(active==='orders'||active==='transport'))await seen(active==='transport'?'CAR':'TICKET');}catch{}};void load(true);const timer=setInterval(()=>{if(document.visibilityState==='visible')void load();},20000);return()=>{stopped=true;clearInterval(timer);};},[active]);return{...data,seen};
 }

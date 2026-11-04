@@ -153,3 +153,6 @@ CREATE TABLE IF NOT EXISTS jinmemo_ride_pools(id text PRIMARY KEY,visit_date tex
 CREATE INDEX IF NOT EXISTS jinmemo_ride_pools_day ON jinmemo_ride_pools(visit_date,vehicle_id);
 CREATE TABLE IF NOT EXISTS jinmemo_admin_notifications(id bigserial PRIMARY KEY,kind text NOT NULL,code text NOT NULL,href text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS jinmemo_admin_notification_reads(admin_id text PRIMARY KEY,last_id bigint NOT NULL DEFAULT 0);
+
+ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_ticket_id bigint;
+ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_car_id bigint;

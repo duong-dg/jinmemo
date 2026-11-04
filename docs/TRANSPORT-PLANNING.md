@@ -6,7 +6,7 @@
 
 - Loại xe: số ghế hành khách thực nhận, nhóm ghép cho phép, một ảnh và một ghi chú chung. Xe 4 chỗ thường ghép `2`; xe 7 chỗ nhập `3,4` để khách chọn nhóm ba hoặc bốn người. Có thể để trống để chỉ bán xe riêng. Nhóm không vượt sức chứa.
 - Khu vực: cây vùng/phường/xã và điều chỉnh vùng tùy chọn. Có nạp tự động bộ cũ hoặc mới từ Province Open API, chỉ thêm mã chưa có, giữ dữ liệu đang chỉnh. Hai địa giới không tự đổi giá cho nhau.
-- Giá tuyến: tổng giá cả chuyến theo chiều đi, loại xe, thời gian dự kiến. Không nhập thêm giá xe ghép theo người. Giá khu vực chính xác ưu tiên; khi dùng vùng cha thì cộng mức điều chỉnh vùng con vào tổng trước khi chia nhóm.
+- Giá tuyến: mỗi cặp đi–đến một dòng, các loại xe thành cột giá. Chỉnh nhiều giá trên cùng tuyến; thời gian dự kiến riêng theo xe trong mỗi ô. Để trống/0 để chưa bán xe đó. Bật **Hai chiều** để dùng một giá cho cả đi và về; mặc định bật với tuyến mới. Đây là giá một lượt dùng được ở cả hai chiều, không phải tổng giá khứ hồi. Tuyến cũ giữ cấu hình cũ cho tới khi bật; nếu đã có dòng chiều ngược sẽ hỏi xác nhận gộp để không âm thầm thay giá. Giá cũ tự gom khi hiển thị, giữ mã giá và thời gian; không đổi database. Tổng giá cả chuyến theo chiều đi, loại xe, thời gian dự kiến. Không nhập thêm giá xe ghép theo người. Giá khu vực chính xác ưu tiên; khi dùng vùng cha thì cộng mức điều chỉnh vùng con vào tổng trước khi chia nhóm.
 
 Dữ liệu cũ chưa khai báo nhóm: sức chứa từ 6 hành khách trở lên mặc định cho nhóm 3/4; sức chứa 2–5 mặc định nhóm 2. Đây là mặc định có thể chỉnh, không phải tự suy ra giấy phép hay kích thước xe. Kiểm tra cấu hình thực tế trước khi mở bán.
 
@@ -37,7 +37,7 @@ Booking mới thanh toán sau, chưa nối cổng thanh toán hay mail khách t�
 
 ## Thông báo mới
 
-Thanh admin có **Đơn mới**: đếm đơn vé và xe chưa xem, danh sách mã và đường dẫn mở đơn. Cập nhật mỗi 20 giây khi tab hiển thị. Đánh dấu đã xem lưu theo từng admin trên server; đọc mốc cũ không nuốt thông báo mới tới sau đó.
+Menu vé và xe có huy hiệu số đơn mới (1, 2, 3…), không có chuông hoặc hộp Đơn mới riêng. Cập nhật mỗi 20 giây khi tab hiển thị. Vào Đơn hàng chỉ đánh dấu đơn vé đã xem; vào Đơn xe chỉ đánh dấu xe. Mốc đọc lưu riêng từng loại và từng admin trên server; đọc mốc cũ không nuốt thông báo mới tới sau đó.
 
 Thông báo tạo cùng giao dịch với đơn. Đơn vé nhiều gói chỉ có một thông báo theo mã giỏ, không lặp từng vé con; retry không báo trùng. Không có âm thanh, email hay thông báo push hệ điều hành mặc định.
 
