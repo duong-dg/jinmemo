@@ -39,6 +39,7 @@ export class DatabaseService implements OnModuleInit,OnModuleDestroy {
 }
 @Global()
 @Module({providers:[{provide:'DB_POOL',useFactory:()=>{
+ if(process.env.PGHOST)return new Pool({host:process.env.PGHOST,port:Number(process.env.PGPORT||5432),user:process.env.PGUSER,password:process.env.PGPASSWORD,database:process.env.PGDATABASE,max:10,connectionTimeoutMillis:5000});
  if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required. Configure the new JinMemo PostgreSQL database.');
  return new Pool({connectionString:process.env.DATABASE_URL,max:10,connectionTimeoutMillis:5000});
 }},DatabaseService],exports:[DatabaseService]})

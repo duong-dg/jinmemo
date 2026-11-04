@@ -26,7 +26,11 @@ services:
     command: [npm, run, start, -w, '@jinmemo/api']
     environment:
       PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-jinmemo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jinmemo}
+      PGHOST: postgres
+      PGPORT: '5432'
+      PGUSER: ${POSTGRES_USER:-jinmemo}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-jinmemo}
       REDIS_URL: redis://redis:6379
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
