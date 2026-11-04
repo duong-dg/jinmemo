@@ -1,3 +1,4 @@
+import{ManualMethods}from'./manual-methods';
 import{PaypalGateway,paypalCents}from'./paypal';
 import{issueSepayToken,verifySepayToken}from'./protocol';
 import{verifySepayWebhook,sepayWebhookCredential}from'./protocol';
@@ -8,7 +9,7 @@ export type PaymentContext={channel:'ADMIN'|'POS'|'CTV';actor?:PosActor;partnerI
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 @Injectable()export class PaymentsService{
  private nextPayloadCleanup=0;
- constructor(private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway){}
+ constructor(private readonly manualMethods:ManualMethods,private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway){}
  async sepayToken(body:unknown,authorization:string){
  const c=await this.settings.config();const fail=()=>{throw new UnauthorizedException({error:'invalid_client'});};
  if(!c.sepayEnabled||c.sepayAuth!=='OAUTH2'||!c.sepayOauthEncrypted)return fail();
@@ -26,7 +27,7 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  const token=issueSepayToken(expected,c.sepayOauthClientId,c.mode);
  return legacy?{data:{accessToken:token,expiredIn:3600}}:{access_token:token,token_type:'Bearer',expires_in:3600};
  }
- async options(){const c=await this.settings.config();return{mode:c.mode,manualMethods:['CASH','PAY_LATER'],paypalRate:c.paypalEnabled?c.paypalRate:undefined,providers:c.mode==='LIVE'?[...(c.vnpayEnabled?['VNPAY']:[]),...(c.sepayEnabled?['SEPAY']:[]),...(c.vnpayEnabled&&c.vnpayCardEnabled?['VNPAY_CARD']:[]),...(c.sepayCardEnabled?['SEPAY_CARD']:[]),...(c.paypalEnabled?['PAYPAL']:[])]:[]};}
+ async options(){const c=await this.settings.config(),manualOptions=await this.manualMethods.active();return{mode:c.mode,manualOptions,manualMethods:manualOptions.map(m=>m.id),paypalRate:c.paypalEnabled?c.paypalRate:undefined,providers:c.mode==='LIVE'?[...(c.vnpayEnabled?['VNPAY']:[]),...(c.sepayEnabled?['SEPAY']:[]),...(c.vnpayEnabled&&c.vnpayCardEnabled?['VNPAY_CARD']:[]),...(c.sepayCardEnabled?['SEPAY_CARD']:[]),...(c.paypalEnabled?['PAYPAL']:[])]:[]};}
  async checkout(body:unknown,ip:string,test=false,context?:PaymentContext){
  const parsed=checkoutSchema.safeParse(body);if(!parsed.success)throw new BadRequestException('Thông tin thanh toán không hợp lệ.');const qrSelected=parsed.data.provider==='VNPAY_QR',card=parsed.data.provider==='VNPAY_CARD',input={...parsed.data,provider:(card||qrSelected)?'VNPAY':parsed.data.provider};if(!test&&!context&&!input.accessKey&&!input.email)throw new BadRequestException('Nhập khóa hoặc email tra cứu.');
  const c=await this.settings.config();if(test?c.mode!=='TEST':c.mode!=='LIVE')throw new BadRequestException('Cổng đang ở môi trường khác.');if(input.provider==='PAYPAL'?!c.paypalEnabled:input.provider==='VNPAY'?(!c.vnpayEnabled||card&&!c.vnpayCardEnabled):input.provider==='SEPAY_CARD'?!c.sepayCardEnabled:!c.sepayEnabled)throw new BadRequestException('Cổng thanh toán chưa bật.');

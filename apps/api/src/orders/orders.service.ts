@@ -1,3 +1,4 @@
+import{ManualMethods}from'../payments/manual-methods';
 import{validateTrip}from'../transport/transport.schema';
 import{calculateOnlineQuote,checkOnlineVoucher}from'../pricing/online-discount';
 import{TicketStockService}from'./ticket-stock.module';
@@ -23,7 +24,7 @@ export interface OrderSnapshot {transport?:ReturnType<typeof validateTrip>;onlin
 interface OrderRow { id: string; code: string; snapshot: OrderSnapshot; contact: object; instructions: string; booking_status: string; payment_status: string; version: number; created_at: Date; request_hash: string }
 @Injectable()
 export class OrdersService {
-  constructor(private readonly stock:TicketStockService,private readonly db: DatabaseService,private readonly mail:MailService,private readonly inventory:InventoryService,private readonly vouchers:VouchersService,private readonly supply:SupplyService,private readonly shifts:ShiftsService) {}
+  constructor(private readonly manualMethods:ManualMethods,private readonly stock:TicketStockService,private readonly db: DatabaseService,private readonly mail:MailService,private readonly inventory:InventoryService,private readonly vouchers:VouchersService,private readonly supply:SupplyService,private readonly shifts:ShiftsService) {}
   private async checkPosStaff(client:Pick<PoolClient,'query'>,staffId:string,counterId:string,permission:string){const result=await client.query('SELECT data FROM jinmemo_pos_users WHERE id=$1 FOR SHARE',[staffId]);const user=result.rows[0]?.data;if(!user||user.status!=='ACTIVE'||!user.counterIds.includes(counterId)||!user.permissions.includes(permission))throw new ForbiddenException('Quyền hoặc quầy được gán đã thay đổi. Đăng nhập lại để tiếp tục.');}
   async create(input: OrderInput,partnerId?:string,pos?:{counterId:string;adminId:string;staffId?:string},tx?:{client:PoolClient;silent?:boolean}) {
     if(input.voucherCode&&(partnerId||pos))throw new BadRequestException('Mã giảm giá chỉ dùng cho đơn web bán lẻ.');
@@ -58,13 +59,14 @@ export class OrdersService {
       const discount=input.voucherCode?await this.vouchers.discount(input.voucherCode,quote.total,client,true,{productId:product.id,variantId:input.variantId,date:input.date}):null;const netTotal=quote.total-(discount?.amount||0);
       if (netTotal !== input.expectedTotal) throw new ConflictException('Giá vừa thay đổi. Vui lòng kiểm tra giá mới trước khi gửi.');
       if(input.locale==='en'&&!translated('PRODUCT',product))throw new ConflictException('English content has changed. Please refresh before booking.');const view=input.locale==='en'?localizeProduct(product):product;const variant = view.variants.find((v:{id:string}) => v.id === input.variantId)!;
+      const paymentChoice=input.contact.paymentPreference?await this.manualMethods.select(input.contact.paymentPreference,client):undefined;
       const snapshot: OrderSnapshot = {...(trip?{transport:trip}:{}),...(quote.timeSlot?{timeSlot:quote.timeSlot}:{}), productId: product.id,variantId:input.variantId, ...(input.locale?{locale:input.locale}:{}),productName: view.name, variantName: variant.name, date: input.date,
         ...(quote.onlineDiscount?{onlineDiscount:quote.onlineDiscount}:{}),...(discount?{discount:{code:discount.code,amount:discount.amount,subtotal:discount.subtotal}}:{}),total: netTotal, lines: quote.lines, demo: false, conditions: variant.conditions || {},
         policy: input.locale==='en'?'Your booking is recorded immediately. JinMemo will send your tickets by email after processing. Booking confirmation does not mean payment has been received or tickets have been issued. Follow the payment instructions provided for your booking.':'Đơn đặt vé được ghi nhận ngay. JinMemo sẽ gửi vé qua email sau khi xử lý. Xác nhận đặt vé không đồng nghĩa đã thanh toán hoặc đã xuất vé. Thanh toán theo hướng dẫn của đơn hàng.' };
       const code = 'JM' + randomBytes(5).toString('hex').toUpperCase();
       const id=randomUUID();const customerAccessKey=pos?randomBytes(32).toString('hex'):input.accessKey;
       await client.query('INSERT INTO jinmemo_orders(id,code,request_id,request_hash,access_hash,snapshot,contact,booking_status) VALUES ($1,$2,$3,$4,$5,$6,$7,\'CONFIRMED\')',
-        [id, code, input.requestId, requestHash, hash(customerAccessKey), JSON.stringify(snapshot),JSON.stringify(input.contact)]);
+        [id, code, input.requestId, requestHash, hash(customerAccessKey), JSON.stringify(snapshot),JSON.stringify({...input.contact,...(paymentChoice?{paymentPreferenceLabel:paymentChoice}:{})})]);
       if(trip)await client.query('INSERT INTO jinmemo_transport_jobs(order_id,visit_date)VALUES($1,$2)',[id,input.date]);
       await this.inventory.allocate(client,id,product.id,input.variantId,input.date,quote.timeSlot?.id||'',quantity);
       if(discount)await this.vouchers.allocate(client,id,discount.id);
