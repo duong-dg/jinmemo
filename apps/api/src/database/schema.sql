@@ -139,3 +139,12 @@ CREATE INDEX IF NOT EXISTS jinmemo_transport_jobs_date ON jinmemo_transport_jobs
 CREATE TABLE IF NOT EXISTS jinmemo_post_metrics(post_id text PRIMARY KEY REFERENCES jinmemo_posts(id),views bigint NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS jinmemo_post_view_keys(post_id text NOT NULL REFERENCES jinmemo_posts(id),fingerprint text NOT NULL,view_day text NOT NULL,PRIMARY KEY(post_id,fingerprint,view_day));
 CREATE INDEX IF NOT EXISTS jinmemo_post_view_keys_day ON jinmemo_post_view_keys(view_day);
+
+CREATE TABLE IF NOT EXISTS jinmemo_ride_bookings(
+ id text PRIMARY KEY, code text NOT NULL UNIQUE, request_key text NOT NULL UNIQUE,
+ visit_date text NOT NULL, status text NOT NULL, trip_id text,
+ data jsonb NOT NULL, version integer NOT NULL DEFAULT 1,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS jinmemo_ride_bookings_trip ON jinmemo_ride_bookings(trip_id);
+CREATE INDEX IF NOT EXISTS jinmemo_ride_bookings_date ON jinmemo_ride_bookings(visit_date);

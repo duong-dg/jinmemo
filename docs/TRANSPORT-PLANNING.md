@@ -1,24 +1,44 @@
-# Khung vận hành xe để thử và chỉnh dần
+# Đặt xe theo khu vực và bảng điều xe
 
-Vào **Đặt xe → Khung xe & ghép chuyến** (`/admin/khung-xe`). Đây là bản khung nội bộ: không mở bán, không tạo đơn, không trừ tồn thật, không gửi mail hay thu tiền. Màn hình xe hiện tại vẫn hoạt động riêng.
+## Cấu hình
 
-## Các tab
+Vào **Đặt xe → Cấu hình xe & giá tuyến** (`/admin/khung-xe`).
 
-1. **Loại xe:** tên 4/7/16 chỗ, số ghế hành khách thực nhận và ghi chú hành lý. Không bắt khách chọn số vali hay kích thước hành lý. Số ghế bán được do admin nhập, không tự suy ra từ tên xe.
-2. **Khu vực & phụ thu:** vùng giá cơ bản và cây khu vực con; phụ thu riêng theo loại xe. Ví dụ Hòa Khánh, Hòa Cầm, Hòa Vang thuộc vùng Đà Nẵng.
-3. **Giá tuyến:** chiều đi → chiều đến → loại xe → giá xe riêng và giá ghép tham khảo. Chiều ngược lại nhập riêng. Báo giá xe riêng ưu tiên tuyến đúng điểm đón/trả; nếu dùng giá vùng cha thì cộng phụ thu các khu vực con. Không cộng phụ thu vùng cha thêm lần nữa khi đã có giá tuyến chính xác. Hai cấu hình cùng ưu tiên gây mơ hồ thì báo lỗi để nhập tuyến cụ thể.
-4. **Chuyến ghép:** tuyến, xe, ngày, khoảng giờ đón, giờ khởi hành dự kiến, hạn nhận và giá/chỗ. Khách HELD/CONFIRMED chiếm ghế; chờ ghép hoặc hủy không chiếm ghế. Chuyến nháp/đóng, hết chỗ hoặc qua hạn nhận không được gợi ý.
-5. **Khách chờ ghép:** tên yêu cầu, điểm đi/đến, ngày, giờ mong muốn, linh động 0/±30/±60 phút và số người. Kiểm tra gợi ý rồi bấm ghép để thử giữ chỗ; khách đã xác nhận có trạng thái riêng. Có thể trả về chờ hoặc hủy để trả ghế. Gợi ý yêu cầu cùng ngày và cùng chiều; khu vực con phù hợp với vùng của chuyến. So sánh giờ mong muốn với giờ khởi hành dự kiến, không tự đổi giờ đã nhập.
-6. **Thử báo giá:** chọn điểm đi/đến và số khách, hiện tất cả loại xe đủ chỗ. Ba người vẫn được chọn xe 7/16 chỗ. Giá thử hiển thị phần tuyến, phụ thu và tổng; không tạo đặt chỗ.
+- **Loại xe:** tên, số ghế hành khách thực nhận, một hình và một ghi chú dùng chung. Không nhập lại ghi chú ở từng tuyến. Số ghế không tự suy ra từ tên xe.
+- **Khu vực:** tạo vùng và các phường/xã trực thuộc theo địa chỉ hiện hành của đơn vị vận hành. Không gắn cứng danh mục hành chính cũ. Đây là vùng phục vụ/bảng giá do admin quản lý, không phải tự tra địa chỉ hoặc dữ liệu bản đồ.
+- **Giá tuyến:** theo chiều đi và loại xe, giá xe riêng/chuyến, giá xe ghép/người, thời gian di chuyển ước tính. Chiều về cần cấu hình riêng. Giá đúng khu vực được ưu tiên; khi dùng tuyến vùng cha, cộng mức điều chỉnh vùng con theo xe. Website chỉ hiện tổng tiền. Xe ghép tính giá/người × số người + điều chỉnh khu vực một lần cho nhóm.
+- **Chuyến ghép:** ngày, loại xe, khoảng đón và giờ khởi hành, hạn ngừng nhận. Giá lấy từ Giá tuyến, không nhập lại ở chuyến. Ghế đã ghép là booking thật, không dùng khách mẫu của bản khung cũ.
+- Nút nạp ví dụ chỉ nạp dữ liệu/giá minh họa và tắt mở nhận; cần xem lại, lưu, rồi bật **Mở nhận đặt xe trên website** khi giá đúng.
 
-## Thử ví dụ
+## Website
 
-**Nạp ví dụ Hội An – Đà Nẵng** đưa dữ liệu và giá minh họa vào trình sửa, chưa ghi đè bản đã lưu cho tới khi bấm Lưu. Có ba loại xe, khu vực trung tâm và các vùng phụ thu, chuyến 10:00 ngày mai cùng khách 07:00/09:00/10:00/11:00.
+`/dat-xe`, `/en/transfers` dùng luồng mới; đường dẫn sản phẩm xe cũ chuyển về đây. `/admin/xe` chuyển về cấu hình mới. Nội dung vé/tour không thay đổi.
 
-Khách 07:00 đúng giờ không được gợi ý chuyến 10:00. Khách 09:00 hoặc 11:00 có linh động ±1 giờ có thể được gợi ý chuyến 10:00 nếu còn chỗ. Ghép nhóm 2 người và 3 người vào xe có 6 ghế còn 1 ghế; ghép thêm 1 người thì hết chỗ. Hủy nhóm 2 người trả lại 2 ghế. Không đổi giờ khách để ép ghép. Muốn đổi giờ ngoài khoảng họ chấp nhận phải liên hệ trước rồi sửa yêu cầu theo sự đồng ý của khách.
+Khách chọn khu vực/phường/xã cho cả hai đầu, ngày giờ, số người và xe riêng/ghép. Web hiện hình, loại xe, sức chứa, nơi đón/đến, tổng tiền và thời gian ước tính nếu được cấu hình. Ba người có thể chọn xe bảy chỗ. Hành lý chỉ ghi chú, không chọn kích thước vali.
 
-## Lưu và phạm vi
+Địa chỉ cụ thể (số nhà/đường) nhập riêng để tài xế đón. Hệ thống không suy đoán phường/xã từ chữ gõ tự do, không gọi dịch vụ bản đồ trả phí. Địa chỉ phải thuộc khu vực khách chọn; nhân viên kiểm tra khi xác nhận. Không dùng thời gian ước tính như ETA giao thông trực tiếp.
 
-Bấm **Lưu bản khung** để lưu toàn bộ cấu hình cùng một phiên bản trên server. Hai cửa sổ sửa cùng lúc sẽ bị chặn ghi đè. Kiểm tra tham chiếu, vòng lặp khu vực, ngày/giờ, giá trùng, tính phù hợp của chuyến đã gán và số ghế tối đa ở server. Dữ liệu bản khung lưu riêng ở `jinmemo_settings/transport-plan` và có audit; không tự nhập vào sản phẩm/chuyến/đơn hiện có.
+Booking mới là **yêu cầu xác nhận thủ công, thanh toán sau**, chưa nối thanh toán online hoặc email xác nhận tự động. Web trả mã booking, nhân viên liên hệ khách theo thông tin đã gửi. Xe ghép chờ ghép chưa giữ ghế, không hứa khách có xe ngay.
 
-Đây là nơi chốt mô hình và trải nghiệm quản trị trước khi nối vào bán thật. Sau khi chốt cần triển khai bảng chuyến/đặt chỗ vận hành riêng, giữ ghế nguyên tử giữa admin/web/CTV/POS, hạn giữ chỗ, khách chấp nhận đổi giờ, snapshot báo giá, thanh toán và kiểm thử đồng thời trên PostgreSQL thật. Chưa tự tìm xe rảnh, chưa có tối ưu cung đường/GIS và chưa tự ghép khách online.
+## Bảng booking
+
+Vào **Đặt xe → Đơn xe & điều xe** (`/admin/dat-xe`). Bảng hàng/cột gọn, có lọc ngày/trạng thái, 50 dòng/trang và nhãn màu:
+
+- Vàng: chờ xác nhận xe riêng.
+- Tím: chờ ghép.
+- Xanh dương: chờ đón (đã ghép nếu là xe ghép).
+- Xanh ngọc: đã đón.
+- Xanh lá: đang đi / hoàn tất.
+- Đỏ: đã hủy.
+
+Chọn Xử lý để gán chuyến phù hợp, tài xế, điện thoại, biển số. Chuyến phải đúng loại xe đã chọn, cùng chiều, ngày, trong giờ linh động khách đồng ý, và đủ ghế. Không tự chuyển giờ khách. Không có chuyến phù hợp thì liên hệ khách, không ép ghép 07:00 vào chuyến 10:00.
+
+Chờ đón/đã đón/đang đi giữ ghế; hủy/trả về chờ ghép giải phóng ghế. Server khóa giao dịch chung với cấu hình, kiểm tra sức chứa và phiên bản lại khi lưu, không tin gợi ý cũ trên màn hình. Khi còn khách đang ghép, không được xóa chuyến, đổi loại xe/tuyến/ngày/giờ sai hoặc giảm ghế dưới số đã giữ.
+
+Trạng thái đi xe **không đồng nghĩa đã thu tiền**. Booking dùng bảng `jinmemo_ride_bookings`, không giả tạo khoản thanh toán trong sổ doanh thu vé. Luồng tiền xe sẽ cần tích hợp riêng khi triển khai thu tiền online.
+
+Tab **Tra cứu đơn luồng cũ** giữ các booking lịch sử để đối chiếu/xử lý. Không xóa đơn cũ hay database. Bảng giá mới không tự nhập từ các sản phẩm xe cũ.
+
+## Kiểm tra
+
+Build API/web/worker; test `rides.test.ts` kiểm tra giá server, không lộ dữ liệu khách ở API công khai, origin/header, đăng nhập admin, chống gửi trùng, khóa phiên bản, trạng thái, chặn vượt ghế và trả ghế khi hủy. PG-mem không thay cho kiểm thử tranh chấp trên PostgreSQL thật trước khi triển khai quy mô lớn.

@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {adminApi} from '../shared/admin-api';
 const states:Record<string,string>={PENDING:'Chờ điều xe',ASSIGNED:'Đã gán tài xế',RUNNING:'Đang chạy',COMPLETED:'Hoàn thành'};
 type Job={order_id:string;code:string;visit_date:string;status:string;version:number;data:{driver?:string;phone?:string;plate?:string;operator?:string;note?:string};booking_status:string;payment_status:string;contact:{name:string;phone:string};snapshot:{productName:string;variantName:string;total:number;transport:{pickup:string;dropoff:string;pickupTime:string;passengers:number;flightNumber:string;returnDate?:string;returnTime?:string}}};
-export function TransportDashboard(){const [date,setDate]=useState(''),[page,setPage]=useState(1),[rows,setRows]=useState<Job[]>([]),[total,setTotal]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[selected,setSelected]=useState<Job>();
+export function LegacyTransportDashboard(){const [date,setDate]=useState(''),[page,setPage]=useState(1),[rows,setRows]=useState<Job[]>([]),[total,setTotal]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[selected,setSelected]=useState<Job>();
  async function load(){setError('');try{const result=await adminApi('transport?page='+page+(date?'&date='+date:''));setRows(result.data);setTotal(result.total);}catch(e){setError((e as Error).message);}}
  useEffect(()=>{const initial=new URLSearchParams(window.location.search).get('date');if(initial&&/^\d{4}-\d{2}-\d{2}$/.test(initial))setDate(initial);},[]);
  useEffect(()=>{void load();},[date,page]);

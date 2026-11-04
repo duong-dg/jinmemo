@@ -18,6 +18,6 @@ Repo mới, lịch sử Git mới và PostgreSQL schema `jinmemo_*`. Giữ nguy�
 
 Node.js 22 trở lên, PostgreSQL 17 và Redis 7. `npm ci`, `npm run build`, `npm test`. Bộ test dùng database mô phỏng độc lập và dữ liệu demo trong môi trường test; không dùng database kinh doanh. Trong Docker, file `apps/api/src/database/schema.sql` được đóng gói cùng ứng dụng.
 
-Đặt xe riêng / xe ghép: xem [hướng dẫn tạo tuyến và điều xe](docs/TRANSFERS.md).
+Đặt xe riêng / xe ghép: xem [khu vực, giá tuyến và bảng booking mới](docs/TRANSPORT-PLANNING.md). [Luồng sản phẩm xe cũ](docs/TRANSFERS.md) chỉ giữ để đối chiếu lịch sử.
 
 Blog: xem [lượt xem, bài nổi bật và bài đọc nhiều](docs/BLOG-DISCOVERY.md).

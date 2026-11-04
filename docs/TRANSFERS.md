@@ -1,4 +1,6 @@
-# Đặt xe riêng và xe ghép
+# Luồng sản phẩm xe cũ — tài liệu lịch sử
+
+Website và cấu hình mới đã chuyển sang [Đặt xe theo khu vực](TRANSPORT-PLANNING.md). Nội dung bên dưới chỉ mô tả hệ thống cũ phục vụ đối chiếu đơn lịch sử; không dùng để thiết lập mới.
 
 ## Tạo tuyến
 
