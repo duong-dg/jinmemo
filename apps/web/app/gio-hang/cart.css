@@ -19,3 +19,24 @@
 .web-cart-stepper{display:grid;grid-template-columns:40px 36px 40px;align-items:center;justify-content:center;gap:2px;flex:0 0 120px;width:120px;height:40px;box-sizing:border-box}.web-cart-stepper>button{display:grid;place-items:center;align-self:center;justify-self:center;width:40px;min-width:40px;max-width:40px;height:40px;min-height:40px;padding:0;margin:0;line-height:1;font-size:21px;box-sizing:border-box}.web-cart-stepper>input[type=number]{display:block;align-self:center;justify-self:center;width:36px;min-width:36px;max-width:36px;height:40px;min-height:40px;padding:0;margin:0;border:0;border-radius:0;line-height:40px;font-size:15px;text-align:center;background:transparent;box-sizing:border-box;appearance:textfield;-moz-appearance:textfield}.web-cart-stepper>input[type=number]::-webkit-inner-spin-button,.web-cart-stepper>input[type=number]::-webkit-outer-spin-button{appearance:none;margin:0}.web-cart-guest{align-items:center;min-width:0}.web-cart-guest>span{min-width:0;line-height:1.5}
 
 .web-online-savings{display:block;color:#bf6236;font-size:11px;line-height:1.5;margin-bottom:4px;text-align:right}.web-online-savings del{color:#8d958e}
+
+.cart-drawer .cart-continue-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #edf4ea;
+  color: #274d3c;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.cart-drawer .cart-continue-button:hover { background: #dfeadc; }
+.cart-drawer .cart-continue-button:focus-visible {
+  outline: 2px solid #274d3c;
+  outline-offset: 2px;
+}
