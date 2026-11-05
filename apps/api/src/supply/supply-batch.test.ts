@@ -1,0 +1,12 @@
+import 'reflect-metadata';import {test} from 'node:test';import assert from 'node:assert/strict';import {newDb} from 'pg-mem';import {randomUUID} from 'node:crypto';import {DatabaseService} from '../database/database.module';import {SupplyService} from './supply.module';
+test('batch source prices are atomic, idempotent and preserve per-group costs and supplier debt',async()=>{
+ process.env.NODE_ENV='test';process.env.SEED_DEMO_DATA='false';const pool=new(newDb({noAstCoverageCheck:true}).adapters.createPg().Pool)(),db=new DatabaseService(pool);await db.onModuleInit();const service=new SupplyService(db),supplierId=randomUUID();
+ try{await pool.query('INSERT INTO jinmemo_suppliers(id,data)VALUES($1,$2)',[supplierId,JSON.stringify({name:'Batch Supplier',status:'ACTIVE'})]);await pool.query('INSERT INTO jinmemo_products(id,slug,data)VALUES($1,$2,$3)',['p','p',JSON.stringify({name:'Tour',variants:[{id:'v',name:'ECO',prices:{ADULT:600000,CHILD:300000}}]})]);
+ const base={supplierId,productId:'p',variantId:'v',validFrom:'2099-01-01',validTo:'2099-12-31',priority:100,note:'Batch'},adult={...base,id:randomUUID(),customerType:'ADULT',unitCost:390000,quantity:3},child={...base,id:randomUUID(),customerType:'CHILD',unitCost:200000,quantity:2};
+ await assert.rejects(service.receiveBatch({lots:[adult,{...child,customerType:'SENIOR'}]},'test'));assert.equal((await pool.query('SELECT * FROM jinmemo_supply_lots')).rowCount,0,'invalid second group must not write the first');
+ await service.receiveBatch({lots:[adult,child]},'test');await service.receiveBatch({lots:[adult,child]},'test');let lots=await service.lots();assert.equal(lots.length,2);assert.equal(lots.find(l=>l.customer_type==='CHILD')!.unit_cost,200000);assert.equal((await service.balances())[0].purchased,1570000);
+ await assert.rejects(service.receiveBatch({lots:[{...adult,unitCost:1},child]},'test'));assert.equal((await service.lots()).length,2);
+ await assert.rejects(service.receiveBatch({lots:[{...adult,id:randomUUID()},{...adult,id:randomUUID()}]},'test'));
+ const onDemand=[{...adult,id:randomUUID(),unlimited:true,quantity:undefined},{...child,id:randomUUID(),unlimited:true,quantity:undefined,unitCost:0}];await service.receiveBatch({lots:onDemand},'test');lots=await service.lots();assert.equal(lots.filter(l=>l.unlimited).length,2);assert.equal((await service.balances())[0].purchased,1570000,'on-demand prices create no upfront debt');
+ }finally{await db.onModuleDestroy();}
+});

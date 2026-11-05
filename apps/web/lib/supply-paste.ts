@@ -1,0 +1,4 @@
+export function supplyPaste(text:string,startRow:number,startCol:number,rowCount:number,columns:number){
+ const rows=text.replace(/\r/g,'').replace(/\n$/,'').split('\n');if(startRow+rows.length>rowCount)throw new Error('Dữ liệu dán vượt số nhóm khách trong bảng.');
+ return rows.flatMap((line,r)=>{const cells=line.split('\t');if(startCol+cells.length>columns)throw new Error('Chỉ dán cột giá mua và số lượng nhập.');return cells.map((cell,c)=>{const raw=cell.trim().replace(/\s/g,'');if(raw&&!/^\d+$/.test(raw)&&!/^\d{1,3}([.,]\d{3})+$/.test(raw))throw new Error('Dữ liệu phải là số nguyên, ví dụ 390000 hoặc 390.000.');const value=raw.replace(/[.,]/g,'');if(value&&(!Number.isSafeInteger(Number(value))||Number(value)>(startCol+c===0?100000000:1000000)))throw new Error('Giá hoặc số lượng vượt giới hạn.');return{row:startRow+r,col:startCol+c,value};});});
+}
