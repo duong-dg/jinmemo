@@ -9,3 +9,23 @@
 .source-history{margin-top:16px;min-width:0}.source-history-tools{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.source-history td{font-size:14px;line-height:1.7}.source-history>p{line-height:1.7}
 
 .supply-price-sheet{overflow-x:auto;margin:18px 0;border:1px solid #dce3d9;border-radius:12px}.supply-price-sheet table{width:100%;border-collapse:collapse;min-width:560px;font-size:14px}.supply-price-sheet th,.supply-price-sheet td{padding:12px;text-align:left;border-bottom:1px solid #e2e8dd;border-right:1px solid #e2e8dd}.supply-price-sheet thead th{background:#f0f5ed;font-weight:600}.supply-price-sheet tbody th{min-width:160px;background:#fafbf8}.supply-price-sheet input{width:100%;min-width:130px;box-sizing:border-box}.supply-price-sheet input:focus{outline:2px solid #e68c58;outline-offset:1px}.supply-price-sheet td:last-child{white-space:nowrap;color:#be6135;font-weight:600}
+
+.supply-validity-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.supply-validity-end {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.supply-validity-end .checkbox-label {
+  font-size: 13px;
+  justify-self: start;
+}
+@media (max-width: 550px) {
+  .supply-validity-grid { grid-template-columns: minmax(0, 1fr); }
+}
