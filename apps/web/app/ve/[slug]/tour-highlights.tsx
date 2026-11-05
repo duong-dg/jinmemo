@@ -10,7 +10,18 @@ export function TourHighlights({product,en}:{product:Product;en:boolean}){
     return <div className="tour-highlights" key={info.id}>
       {!same&&<strong>{info.name}</strong>}
       {duration&&<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>{en?'Duration':'Thời lượng'}<b>{duration}</b></span></span>}
-      {(info.minGuests||info.maxGuests)&&<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m1 4a5 5 0 0 1 4 5v2"/></svg><span>{info.minGuests?(en?'Minimum guests':'Khách tối thiểu'):(en?'Maximum guests':'Khách tối đa')}<b>{info.minGuests||info.maxGuests}{info.minGuests&&info.maxGuests?' · '+(en?'Max ':'Tối đa ')+info.maxGuests:''}</b></span></span>}
+      {info.minGuests&&<span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <circle cx="12" cy="7" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3"/>
+        </svg>
+        <span>{en?'Minimum guests':'Khách tối thiểu'}<b>{info.minGuests}</b></span>
+      </span>}
+      {info.maxGuests&&<span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m1 4a5 5 0 0 1 4 5v2"/>
+        </svg>
+        <span>{en?'Maximum guests':'Khách tối đa'}<b>{info.maxGuests}</b></span>
+      </span>}
     </div>;
   })}</>;
 }
