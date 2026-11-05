@@ -2,13 +2,34 @@
 
 ## Bảng cấu hình
 
-**Đặt xe → Loại xe / Khu vực đón trả / Giá tuyến** là ba bảng hàng/cột chỉnh trực tiếp. Mỗi mục có nút lưu riêng và kiểm tra phiên bản riêng; lưu Giá tuyến không ghi đè thay đổi Loại xe từ tab khác. Server ghép mục vừa sửa vào dữ liệu mới nhất và kiểm tra toàn bộ tham chiếu trước khi lưu.
+**Đặt xe → Thiết lập dịch vụ xe / Loại xe / Khu vực đón trả / Giá tuyến**. Ba mục danh mục là các bảng hàng/cột chỉnh trực tiếp. Mỗi mục có nút lưu riêng và kiểm tra phiên bản riêng; lưu Giá tuyến không ghi đè thay đổi Loại xe từ tab khác. Server ghép mục vừa sửa vào dữ liệu mới nhất và kiểm tra toàn bộ tham chiếu trước khi lưu.
 
-- Loại xe: số ghế hành khách thực nhận, nhóm ghép cho phép, một ảnh và một ghi chú chung. Xe 4 chỗ thường ghép `2`; xe 7 chỗ nhập `3,4` để khách chọn nhóm ba hoặc bốn người. Có thể để trống để chỉ bán xe riêng. Nhóm không vượt sức chứa.
+- Thiết lập dịch vụ xe: bật/tắt mở nhận và ghi chú chung Việt/Anh, chỉ nhập một lần cho tất cả xe. Lưu độc lập, không bị ghi đè khi lưu loại xe. Khi chưa lưu chung, ghi chú cũ còn được giữ; form gom các ghi chú cũ để kiểm tra trước khi lưu.
+- Loại xe: tên Việt, tên Anh, số ghế hành khách thực nhận, nhóm ghép cho phép và ảnh. Bản Anh nhập riêng, không tự dịch/ghi đè khi sửa tiếng Việt. Xe 4 chỗ thường ghép `2`; xe 7 chỗ nhập `3,4` để khách chọn nhóm ba hoặc bốn người. Có thể để trống để chỉ bán xe riêng. Nhóm không vượt sức chứa.
 - Khu vực: cây vùng/phường/xã và điều chỉnh vùng tùy chọn. Có nạp tự động bộ cũ hoặc mới từ Province Open API, chỉ thêm mã chưa có, giữ dữ liệu đang chỉnh. Hai địa giới không tự đổi giá cho nhau.
 - Giá tuyến: mỗi cặp đi–đến một dòng, các loại xe thành cột giá. Chỉnh nhiều giá trên cùng tuyến; thời gian dự kiến riêng theo xe trong mỗi ô. Để trống/0 để chưa bán xe đó. Bật **Hai chiều** để dùng một giá cho cả đi và về; mặc định bật với tuyến mới. Đây là giá một lượt dùng được ở cả hai chiều, không phải tổng giá khứ hồi. Tuyến cũ giữ cấu hình cũ cho tới khi bật; nếu đã có dòng chiều ngược sẽ hỏi xác nhận gộp để không âm thầm thay giá. Giá cũ tự gom khi hiển thị, giữ mã giá và thời gian; không đổi database. Tổng giá cả chuyến theo chiều đi, loại xe, thời gian dự kiến. Không nhập thêm giá xe ghép theo người. Giá khu vực chính xác ưu tiên; khi dùng vùng cha thì cộng mức điều chỉnh vùng con vào tổng trước khi chia nhóm.
 
 Dữ liệu cũ chưa khai báo nhóm: sức chứa từ 6 hành khách trở lên mặc định cho nhóm 3/4; sức chứa 2–5 mặc định nhóm 2. Đây là mặc định có thể chỉnh, không phải tự suy ra giấy phép hay kích thước xe. Kiểm tra cấu hình thực tế trước khi mở bán.
+
+## Giá hợp lệ, sân bay và mức cộng vùng
+
+Website chỉ đưa vào tìm kiếm khu vực thuộc tuyến có giá gốc > 0; xe không có giá không hiện. Mức cộng vùng 50.000đ không thay được giá gốc 0/chưa nhập.
+
+Vào **Khu vực → Gán vùng giá / cộng tiền hàng loạt / thêm sân bay**:
+
+1. Chọn vùng giá cha Đà Nẵng, thêm Sân bay Đà Nẵng. Tên Anh và từ khóa DAD/airport giúp tìm kiếm. Điểm mới mặc định nằm trong giá cơ bản, không tự cộng tiền. Tuyến Hội An ↔ Đà Nẵng tự phục vụ sân bay bằng giá Đà Nẵng; không cần sao chép bảng giá.
+2. Với phường/xã đã nạp, có thể chọn nhiều dòng và gán thuộc vùng giá Đà Nẵng. Đây là vùng phục vụ do admin quản lý, không phải tự định vị địa chỉ gõ tự do.
+3. Đánh dấu phường trung tâm. Nút Chọn ngoài trung tâm chỉ lấy khu vực trực thuộc chưa đánh dấu trung tâm trong kết quả đang lọc. Kiểm tra lại các ô chọn trước khi áp giá.
+4. Chọn tất cả hoặc một loại xe, nhập 50.000đ. Mặc định Đặt mức cộng vùng bằng số tiền này, chạy lại không cộng thành 100.000đ. Chỉ chọn Cộng thêm khi thật sự muốn tăng mức hiện có.
+5. Bấm Áp dụng, rồi Lưu khu vực. Nếu chọn cả vùng cha và con, chỉ áp cho cấp con thấp nhất để tránh cộng hai lần. Không áp mức cộng vào khu vực gốc. Giá tuyến riêng tới đúng phường/sân bay vẫn ưu tiên, không cộng lại phí vùng cha.
+
+Ví dụ giá thành phố xe 4 = 300.000đ, phường ngoài trung tâm +50.000đ → 350.000đ. Sân bay cùng vùng giá và không cộng thêm → 300.000đ. Nhóm xe ghép chia tổng đã cộng vùng cho số người nhóm chọn.
+
+## Xe sản phẩm cũ
+
+Trong **Loại xe → Sản phẩm xe cũ**, có Xóa/ngừng bán và Khôi phục thành nháp. Chỉ lưu trữ sản phẩm, không xóa booking hay lịch sử thu tiền.
+
+Bản nâng cấp có xử lý một lần theo yêu cầu: nếu có đúng một sản phẩm xe cũ với tên chuẩn hóa `Hội An - Đà Nẵng` hoặc `Xe Hội An - Đà Nẵng`, tự chuyển sang lưu trữ, ghi nhật ký và tăng phiên bản. Chỉ xét sản phẩm có cấu hình transport, không chạm vé/tour trùng tên. Nếu có nhiều ứng viên thì để admin chọn, không tự đoán. Khôi phục sau đó không bị lưu trữ lại ở lần khởi động tiếp theo.
 
 ## Khách tự tạo chuyến ghép
 

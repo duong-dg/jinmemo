@@ -3,3 +3,5 @@
 .transport-planner label.planner-enable{display:flex;flex-direction:row;align-items:center;gap:9px}.transport-planner label.planner-enable input{width:auto;flex:0 0 auto}
 
 .planner-sheet .fare-direction{display:flex;flex-direction:row;align-items:center;gap:7px;white-space:nowrap;padding:8px}.planner-sheet .fare-direction input{width:auto}
+
+.planner-sheet .area-check{width:18px;min-height:18px;height:18px;padding:0}.area-tools>summary,.legacy-vehicles>summary{cursor:pointer;font-weight:600}.area-tools{margin:18px 0}.area-tools fieldset{border:0;padding:0}.area-tools p{font-size:13px;line-height:1.7}.area-tools .field-grid{margin:14px 0}.area-tools hr{border:0;border-top:1px solid #dce5df;margin:20px 0}.legacy-vehicles{margin-top:22px}.legacy-vehicles .planner-toolbar{border-bottom:1px solid #e2e9e4;padding:10px 0}
