@@ -10,3 +10,8 @@ test('tour limits count all guest groups, inherit defaults, allow exact boundari
 test('admin rejects contradictory inherited limits and preserves optional legacy products',()=>{
  const managed={...base,status:'DRAFT',version:0};assert.ok(productSchema.safeParse(managed).success);assert.equal(productSchema.safeParse({...managed,tourInfo:{minGuests:5,maxGuests:2}}).success,false);assert.equal(productSchema.safeParse({...managed,tourInfo:{minGuests:5,maxGuests:10},variants:[{...base.variants[0],tourInfo:{maxGuests:3}}]}).success,false);assert.equal(productSchema.safeParse({...managed,tourInfo:{minGuests:0}}).success,false);
 });
+test('tour children require an adult, including local guest groups',()=>{
+ const product={...base,tourInfo:{minGuests:2},variants:[{...base.variants[0],prices:{ADULT:100,CHILD:50,LOCAL_ADULT:80,LOCAL_CHILD:40}}]};
+ assert.throws(()=>calculateQuote(product,'v','2099-01-01',{CHILD:1,LOCAL_CHILD:1}),/người lớn đi cùng/);
+ assert.equal(calculateQuote(product,'v','2099-01-01',{LOCAL_ADULT:1,CHILD:1}).total,130);
+});

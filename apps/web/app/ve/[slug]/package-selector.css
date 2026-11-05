@@ -8,3 +8,5 @@
 .package-original-price{display:block;font-size:11px;font-weight:400;color:#8a8f89;line-height:1.2;margin-bottom:3px}
 
 .tour-booking-facts{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 14px}.tour-booking-facts span{display:inline-flex;padding:7px 10px;border-radius:8px;background:#f1f5ed;color:#4b6553;font-size:13px;line-height:1.5}
+
+.tour-highlights{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 20px}.tour-highlights>strong{flex-basis:100%}.tour-highlights>span{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:#edf5ed;color:#315b43;font-size:13px}.tour-highlights svg{width:30px;height:30px;flex:none}.tour-highlights b{display:block;font-size:16px}

@@ -54,6 +54,7 @@ export function calculateQuote(
     return { customerType, quantity, unitPrice, subtotal: quantity * unitPrice, ruleId: candidates[0]?.id ?? 'base' };
   }).filter((line) => line !== null);
   if (lines.reduce((sum,line)=>sum+line.quantity,0)>150) throw new Error('Mỗi đơn tối đa 150 khách.');
+  if(validateGuests&&(product.type==='TOUR'||product.tourInfo||variant.tourInfo)&&(quantities.CHILD||quantities.LOCAL_CHILD)&&!(quantities.ADULT||quantities.LOCAL_ADULT))throw new Error('Đặt tour cho trẻ em cần ít nhất một người lớn đi cùng.');
   const tourInfo=effectiveTourInfo(product,variant);if(validateGuests)checkTourGuests(tourInfo,lines.reduce((n,l)=>n+l.quantity,0));
   const total = lines.reduce((sum, line) => sum + line.subtotal, 0);
   if (!Number.isSafeInteger(total)) throw new Error('Tổng tiền vượt giới hạn.');
