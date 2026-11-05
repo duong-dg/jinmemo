@@ -1,11 +1,12 @@
+import type {TourInfo} from '../pricing/tour-info';
 import type{OnlineDiscount}from'../pricing/online-discount';
 export type CustomerType = 'ADULT' | 'CHILD' | 'SENIOR' | 'LOCAL_ADULT' | 'LOCAL_CHILD' | 'LOCAL_SENIOR';
-export interface Variant {onlineDiscount?:OnlineDiscount;timeSlots?:{id:string;start:string;end?:string}[];
+export interface Variant {tourInfo?:TourInfo;onlineDiscount?:OnlineDiscount;timeSlots?:{id:string;start:string;end?:string}[];
   id: string;
   name: string;
   prices: Partial<Record<CustomerType, number>>;
 }
-export interface Product {
+export interface Product {tourInfo?:TourInfo;
   onlineDiscount?:OnlineDiscount;
   id: string;
   slug: string;

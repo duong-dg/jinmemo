@@ -26,7 +26,7 @@ class CatalogController {
     if (!variant) throw new BadRequestException('Gói vé không tồn tại.');
     try {
       const quantities = Object.fromEntries(Object.keys(variant.prices).map(type => [type, 1]));
-      const quote=calculateOnlineQuote(view, variantId, date, quantities, product.rules, product.closures,slotId);return{...quote,inventory:await this.inventory.availability(product.id,variantId,date,quote.timeSlot?.id||'')};
+      const quote=calculateOnlineQuote(view, variantId, date, quantities, product.rules, product.closures,slotId,Date.now(),false);return{...quote,inventory:await this.inventory.availability(product.id,variantId,date,quote.timeSlot?.id||'')};
     } catch (e) { throw new BadRequestException(e instanceof Error ? e.message : 'Không thể lấy giá.'); }
   }
   @Get(':id/sale-calendar')async calendar(@Param('id')id:string){const product=await this.catalog.find(id);return{data:{variants:product.variants.map(v=>({id:v.id,timeSlots:v.timeSlots})),saleClosures:publicSaleClosures(product)}};}

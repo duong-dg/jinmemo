@@ -1,0 +1,2 @@
+export type TourInfo={duration?:string;durationEn?:string;minGuests?:number;maxGuests?:number};
+export function effectiveTourInfo(product:{tourInfo?:TourInfo},variant:{tourInfo?:TourInfo}):TourInfo{return{duration:variant.tourInfo?.duration||product.tourInfo?.duration,durationEn:variant.tourInfo?.durationEn||product.tourInfo?.durationEn,minGuests:variant.tourInfo?.minGuests??product.tourInfo?.minGuests,maxGuests:variant.tourInfo?.maxGuests??product.tourInfo?.maxGuests};}

@@ -1,3 +1,4 @@
+import {effectiveTourInfo,checkTourGuests} from './tour-info';
 import{checkSchedule}from'./schedule';
 import { CustomerType, Product } from '../catalog/catalog.data';
 
@@ -28,7 +29,7 @@ export function validateDate(value: string): void {
 export function calculateQuote(
   product: Product, variantId: string, date: string,
   quantities: Partial<Record<CustomerType, number>>,
-  rules: PriceRule[] = [], closures: Closure[] = [],slotId?:string,now=Date.now()
+  rules: PriceRule[] = [], closures: Closure[] = [],slotId?:string,now=Date.now(),validateGuests=true
 ) {
   validateDate(date);
   const variant = product.variants.find((item) => item.id === variantId);
@@ -53,6 +54,7 @@ export function calculateQuote(
     return { customerType, quantity, unitPrice, subtotal: quantity * unitPrice, ruleId: candidates[0]?.id ?? 'base' };
   }).filter((line) => line !== null);
   if (lines.reduce((sum,line)=>sum+line.quantity,0)>150) throw new Error('Mỗi đơn tối đa 150 khách.');
+  const tourInfo=effectiveTourInfo(product,variant);if(validateGuests)checkTourGuests(tourInfo,lines.reduce((n,l)=>n+l.quantity,0));
   const total = lines.reduce((sum, line) => sum + line.subtotal, 0);
   if (!Number.isSafeInteger(total)) throw new Error('Tổng tiền vượt giới hạn.');
   return { productId: product.id, productName:product.name, variantId, variantName:variant.name, date,...(timeSlot?{timeSlot}:{}), currency: 'VND', lines, total, demo: product.demo ?? true };
