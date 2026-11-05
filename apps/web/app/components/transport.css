@@ -35,3 +35,9 @@
     outline-offset: -2px;
   }
 }
+
+.ride-date-control { position: relative; min-width: 0; }
+.ride-date-control .date-picker > summary { min-height: 40px; padding: 8px; font-size: 13px; gap: 5px; }
+.ride-date-control .date-popover { position: absolute; z-index: 15; top: 100%; left: 0; width: min(320px, calc(100vw - 48px)); }
+.ride-search-grid .time-picker { padding: 0 10px; }
+.ride-search-grid .time-picker-controls select:focus-visible { outline-offset: -2px; }
