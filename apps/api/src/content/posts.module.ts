@@ -74,7 +74,7 @@ export class PostsService{
     if(post.english)post.english.contentHtml=cleanContent(post.english.contentHtml);markTranslation('POST',post);
     if(post.status==='PUBLISHED'&&!post.contentHtml.replace(/<[^>]*>/g,'').trim())throw new BadRequestException('Bài xuất bản cần nội dung chữ.');
     await this.media.validateIds([...(post.cover?[post.cover.id]:[]),...contentImageIds(post.contentHtml),...contentImageIds(post.english?.contentHtml||'')]);
-    for(const id of new Set(post.relatedProductIds)){const row=await this.db.pool.query('SELECT id FROM jinmemo_products WHERE id=$1',[id]);if(!row.rowCount)throw new BadRequestException('Sản phẩm liên quan không tồn tại.');}
+    const related:string[]=[];for(const id of new Set(post.relatedProductIds)){const row=(await this.db.pool.query('SELECT id,data FROM jinmemo_products WHERE id=$1',[id])).rows[0];if(!row)throw new BadRequestException('Sản phẩm liên quan không tồn tại.');if(!row.data.transport&&row.data.status!=='ARCHIVED')related.push(id);}post.relatedProductIds=related;
     const client=await this.db.pool.connect();try{await client.query('BEGIN');await client.query("SELECT id FROM jinmemo_migrations WHERE id='041_english_urls_lock' FOR UPDATE");
       const current=post.version?await client.query('SELECT slug,data,version,updated_at FROM jinmemo_posts WHERE id=$1 FOR UPDATE',[post.id]):null;
       if(post.status==='PUBLISHED'&&!post.publishedAt)post.publishedAt=current?.rows[0]?.data.status==='PUBLISHED'?(current.rows[0].data.publishedAt||new Date(current.rows[0].updated_at).toISOString()):new Date().toISOString();
