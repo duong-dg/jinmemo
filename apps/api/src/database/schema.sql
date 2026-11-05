@@ -156,3 +156,7 @@ CREATE TABLE IF NOT EXISTS jinmemo_admin_notification_reads(admin_id text PRIMAR
 
 ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_ticket_id bigint;
 ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_car_id bigint;
+
+CREATE TABLE IF NOT EXISTS jinmemo_ride_payment_attempts(id text PRIMARY KEY,ride_id text NOT NULL REFERENCES jinmemo_ride_bookings(id),amount bigint NOT NULL,config_version integer NOT NULL,config jsonb NOT NULL,status text NOT NULL DEFAULT 'PENDING',created_at timestamptz NOT NULL DEFAULT now(),expires_at timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS jinmemo_ride_payment_attempt_ride ON jinmemo_ride_payment_attempts(ride_id);
+CREATE TABLE IF NOT EXISTS jinmemo_ride_payment_events(event_id text PRIMARY KEY REFERENCES jinmemo_gateway_events(id),ride_id text NOT NULL REFERENCES jinmemo_ride_bookings(id));

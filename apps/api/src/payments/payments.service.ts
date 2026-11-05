@@ -1,3 +1,4 @@
+import {RidePayments} from './ride-payments';
 import{ManualMethods}from'./manual-methods';
 import{PaypalGateway,paypalCents}from'./paypal';
 import{issueSepayToken,verifySepayToken}from'./protocol';
@@ -9,7 +10,7 @@ export type PaymentContext={channel:'ADMIN'|'POS'|'CTV';actor?:PosActor;partnerI
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 @Injectable()export class PaymentsService{
  private nextPayloadCleanup=0;
- constructor(private readonly manualMethods:ManualMethods,private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway){}
+ constructor(private readonly manualMethods:ManualMethods,private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway,private readonly ridePayments:RidePayments){}
  async sepayToken(body:unknown,authorization:string){
  const c=await this.settings.config();const fail=()=>{throw new UnauthorizedException({error:'invalid_client'});};
  if(!c.sepayEnabled||c.sepayAuth!=='OAUTH2'||!c.sepayOauthEncrypted)return fail();
@@ -73,9 +74,9 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  if(!parsed.success)throw new BadRequestException('Bộ lọc giao dịch không hợp lệ.');
  const input=parsed.data,values:unknown[]=[],where:string[]=[];
  for(const field of ['status','provider','mode']as const)if(input[field]){values.push(input[field]);where.push('e.'+field+'=$'+values.length);}
- if(input.q){values.push(input.q);where.push('(e.id=$'+values.length+' OR o.code=$'+values.length+' OR c.code=$'+values.length+')');}
- const from=' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_orders o ON o.id=e.order_id LEFT JOIN jinmemo_cart_orders co ON co.order_id=o.id LEFT JOIN jinmemo_carts c ON c.id=co.cart_id'+(where.length?' WHERE '+where.join(' AND '):''),count=Number((await this.db.pool.query('SELECT COUNT(*) AS total'+from,values)).rows[0].total),page=Math.min(input.page,Math.max(1,Math.ceil(count/25)));
- const data=(await this.db.pool.query('SELECT e.id,e.order_id,o.code AS order_code,c.code AS cart_code,e.provider,e.mode,e.amount,e.status,e.reason,e.created_at,a.config->>\'usdCents\' AS usd_cents,a.config->>\'paypalRate\' AS exchange_rate'+from.replace(' FROM jinmemo_gateway_events e',' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_gateway_attempts a ON a.id=e.attempt_id')+' ORDER BY e.created_at DESC,e.id DESC LIMIT 25 OFFSET $'+(values.length+1),[...values,(page-1)*25])).rows;
+ if(input.q){values.push(input.q);where.push('(e.id=$'+values.length+' OR o.code=$'+values.length+' OR c.code=$'+values.length+' OR rb.code=$'+values.length+')');}
+ const from=' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_ride_payment_events re ON re.event_id=e.id LEFT JOIN jinmemo_ride_bookings rb ON rb.id=re.ride_id LEFT JOIN jinmemo_orders o ON o.id=e.order_id LEFT JOIN jinmemo_cart_orders co ON co.order_id=o.id LEFT JOIN jinmemo_carts c ON c.id=co.cart_id'+(where.length?' WHERE '+where.join(' AND '):''),count=Number((await this.db.pool.query('SELECT COUNT(*) AS total'+from,values)).rows[0].total),page=Math.min(input.page,Math.max(1,Math.ceil(count/25)));
+ const data=(await this.db.pool.query('SELECT e.id,e.order_id,rb.id AS ride_id,COALESCE(o.code,rb.code) AS order_code,c.code AS cart_code,e.provider,e.mode,e.amount,e.status,e.reason,e.created_at,a.config->>\'usdCents\' AS usd_cents,a.config->>\'paypalRate\' AS exchange_rate'+from.replace(' FROM jinmemo_gateway_events e',' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_gateway_attempts a ON a.id=e.attempt_id')+' ORDER BY e.created_at DESC,e.id DESC LIMIT 25 OFFSET $'+(values.length+1),[...values,(page-1)*25])).rows;
  return{data,total:count,page,pageSize:25};
  }
 
@@ -140,5 +141,5 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  if(Date.now()>=this.nextPayloadCleanup){await this.db.pool.query('DELETE FROM jinmemo_sepay_payloads WHERE created_at<$1',[new Date(Date.now()-90*86400000)]);this.nextPayloadCleanup=Date.now()+3600000;}
  const payloadId='SEPAY:'+c.mode+':'+BigInt(p.id).toString();
  await this.db.pool.query('INSERT INTO jinmemo_sepay_payloads(id,payload_encrypted)VALUES($1,$2) ON CONFLICT(id) DO NOTHING',[payloadId,await this.mail.encrypt(signed?.raw?.toString('utf8')||JSON.stringify(body))]);
- if(p.transferType!=='in')return{success:true};const tokens=[...new Set(p.content.toUpperCase().match(/\bJMP[A-F0-9]{24}\b/g)||[])];let reason=tokens.length?'':'Không có mã yêu cầu thanh toán JMP trong nội dung';if(tokens.length>1)reason='Nội dung có nhiều mã thanh toán';if(p.code&&/^JMP[A-F0-9]{24}$/i.test(p.code)&&(tokens.length!==1||p.code.toUpperCase()!==tokens[0]))reason='Mã thanh toán SePay không khớp nội dung';if(p.accountNumber!==c.accountNumber||p.gateway.toLowerCase()!==c.bankCode.toLowerCase()||p.subAccount)reason='Tài khoản/ngân hàng nhận không khớp hoặc tài khoản ảo chưa hỗ trợ';await this.settle(tokens.length===1?tokens[0]:undefined,'SEPAY',c.mode,BigInt(p.id).toString(),p.transferAmount,digest(JSON.stringify({id:BigInt(p.id).toString(),tokens,amount:p.transferAmount,bank:p.gateway.toLowerCase(),account:p.accountNumber,sub:p.subAccount||''})),reason,credential);return{success:true};}
+ if(p.transferType!=='in')return{success:true};const tokens=[...new Set(p.content.toUpperCase().match(/\bJM[PR][A-F0-9]{24}\b/g)||[])];let reason=tokens.length?'':'Không có mã yêu cầu thanh toán JMP trong nội dung';if(tokens.length>1)reason='Nội dung có nhiều mã thanh toán';if(p.code&&/^JM[PR][A-F0-9]{24}$/i.test(p.code)&&(tokens.length!==1||p.code.toUpperCase()!==tokens[0]))reason='Mã thanh toán SePay không khớp nội dung';if(p.accountNumber!==c.accountNumber||p.gateway.toLowerCase()!==c.bankCode.toLowerCase()||p.subAccount)reason='Tài khoản/ngân hàng nhận không khớp hoặc tài khoản ảo chưa hỗ trợ';if(tokens.some(t=>t.startsWith('JMR'))){if(c.mode!=='LIVE')throw new BadRequestException('Đơn xe chỉ nhận QR LIVE.');await this.ridePayments.settle(tokens.length===1?tokens[0]:undefined,BigInt(p.id).toString(),p.transferAmount,digest(JSON.stringify({id:BigInt(p.id).toString(),tokens,amount:p.transferAmount,bank:p.gateway.toLowerCase(),account:p.accountNumber,sub:p.subAccount||''})),reason,credential);return{success:true};}await this.settle(tokens.length===1?tokens[0]:undefined,'SEPAY',c.mode,BigInt(p.id).toString(),p.transferAmount,digest(JSON.stringify({id:BigInt(p.id).toString(),tokens,amount:p.transferAmount,bank:p.gateway.toLowerCase(),account:p.accountNumber,sub:p.subAccount||''})),reason,credential);return{success:true};}
 }

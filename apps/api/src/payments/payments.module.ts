@@ -1,3 +1,4 @@
+import {RidePayments} from './ride-payments';
 import{clientAddress}from'../http/client-address';
 import{RequestLimit,requestBudgets}from'../http/request-limit';
 import{PaypalGateway}from'./paypal';
@@ -38,4 +39,4 @@ import{Body,Controller,Get,HttpCode,HttpException,ForbiddenException,Logger,Modu
  constructor(private readonly service:PaymentsService,private readonly auth:PosAuthService){}
  @Post('checkout')async checkout(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);res.setHeader('Cache-Control','private, no-store');return this.service.checkout(body,clientAddress(req).ip,false,{channel:'POS',actor:await this.auth.require(req)});}
 }
-@Module({imports:[AuthModule,MailModule,ShiftsModule,PartnersModule,PosModule],controllers:[PublicPaymentsController,AdminPaymentsController,PartnerPaymentsController,PosPaymentsController],providers:[PaypalGateway,PaymentSettings,PaymentsService,PaymentReconciliation]})export class PaymentsModule{}
+@Module({imports:[AuthModule,MailModule,ShiftsModule,PartnersModule,PosModule],controllers:[PublicPaymentsController,AdminPaymentsController,PartnerPaymentsController,PosPaymentsController],exports:[RidePayments],providers:[RidePayments,PaypalGateway,PaymentSettings,PaymentsService,PaymentReconciliation]})export class PaymentsModule{}

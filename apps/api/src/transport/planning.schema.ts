@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {validateDate} from '../pricing/pricing';
 const id=z.string().min(1).max(80),name=z.string().trim().min(1).max(150),money=z.number().int().min(0).max(100000000),time=z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),date=z.string().refine(v=>{try{validateDate(v);return true;}catch{return false;}},'Ngày không hợp lệ');
 export const planSchema=z.object({
- enabled:z.boolean().default(false),
+ enabled:z.boolean().default(false),qrEnabled:z.boolean().default(false),
  note:z.string().trim().max(3000).optional(),noteEn:z.string().trim().max(3000).optional(),
  vehicles:z.array(z.object({id,name,englishName:z.string().trim().max(150).optional(),sharedSizes:z.array(z.number().int().min(2).max(60)).max(5).optional(),seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict().transform(v=>({...v,sharedSizes:v.sharedSizes??(v.seats>=6?[3,4]:v.seats>=2?[2]:[])}))).max(20),
  areas:z.array(z.object({id,name,central:z.boolean().optional(),englishName:z.string().trim().max(150).optional(),aliases:z.array(z.string().trim().min(1).max(150)).max(20).optional(),parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(1000),
