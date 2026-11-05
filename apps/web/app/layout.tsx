@@ -1,3 +1,5 @@
+import {GoogleAnalytics} from './components/google-analytics';
+import {loadSiteSeo} from '../lib/site-seo';
 import{PageMenu}from'./components/page-menu';import{contentApi}from'../lib/content-api';import type{PageNav}from'../lib/site-pages';
 import{PublicMotion}from'./components/public-motion';
 import'./motion.css';
@@ -25,8 +27,10 @@ export default async function RootLayout({ children }: {
     children: React.ReactNode;
 }) {
     const locale = await requestLocale(), t = translator(locale);let pageLinks:PageNav[]=[];try{pageLinks=await contentApi<PageNav[]>('site/navigation',locale);}catch{}const menuLinks=pageLinks.filter(p=>p.menu),contactLink=menuLinks.find(p=>p.href===localizedPath('/lien-he',locale)),infoLinks=menuLinks.filter(p=>p!==contactLink);
+    const seo=await loadSiteSeo();
+    const analyticsId=seo.analyticsEnabled&&/^G-[A-Z0-9]+$/.test(seo.analyticsId||'')?seo.analyticsId:undefined;
     return <html lang={locale} data-scroll-behavior="smooth"><body><LocaleContext value={locale}>
-    <PublicMotion/><SkipLink /><CartDrawer/>
+    {analyticsId&&<GoogleAnalytics key={analyticsId} id={analyticsId}/>}<PublicMotion/><SkipLink /><CartDrawer/>
     <header className="header"><div className="header-inner"><MobileMenu label={locale==='en'?'Main navigation':'Điều hướng chính'} links={[{href:localizedPath('/',locale)+'#experiences',label:t('Vé & trải nghiệm')},{href:localizedPath('/dat-xe',locale),label:locale==='en'?'Transfers':'Đặt xe'},{href:localizedPath('/cam-nang',locale),label:t('Cẩm nang')},{href:localizedPath('/gio-hang',locale),label:locale==='en'?'Ticket basket':'Giỏ vé'},{href:localizedPath('/tra-cuu',locale),label:t('Tra cứu đơn hàng ↗')},{href:'/ctv',label:t('Cổng CTV ↗')},...menuLinks.map(p=>({href:p.href,label:p.label}))]}/><Link className="logo" href={localizedPath('/', locale)}>jin<span>memo</span><i>↗</i></Link>
       <nav className="public-desktop-nav" aria-label={locale==='en'?'Main navigation':'Điều hướng chính'}><Link href={localizedPath('/', locale) + '#experiences'}>{t("Vé & trải nghiệm")}</Link><Link href={localizedPath('/dat-xe',locale)}>{locale==='en'?'Transfers':'Đặt xe'}</Link><Link href={localizedPath('/cam-nang', locale)}>{t("Cẩm nang")}</Link><PageMenu links={infoLinks} label={locale==='en'?'Information':'Thông tin'}/>{contactLink&&<Link href={contactLink.href}>{contactLink.label}</Link>}</nav>
       <LanguageSwitcher/><CartLink/><span className="header-note">{t("Đi gần hơn. Trải nghiệm nhiều hơn.")}</span>
