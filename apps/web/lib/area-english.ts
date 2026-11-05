@@ -9,3 +9,7 @@ export function suggestAreaEnglish(value:string):string{
 export function fillAreaEnglish<T extends {name:string;englishName?:string}>(areas:T[]):T[]{
  return areas.map(area=>area.englishName?.trim()?area:{...area,englishName:suggestAreaEnglish(area.name)});
 }
+
+export function areaDisplayName(area:{name:string;englishName?:string},en=false):string{
+ return en?(area.englishName?.trim()||suggestAreaEnglish(area.name)):area.name;
+}
