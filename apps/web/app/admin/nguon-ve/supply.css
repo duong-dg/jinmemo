@@ -29,3 +29,10 @@
 @media (max-width: 550px) {
   .supply-validity-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.supply-source-table { margin-top: 16px; }
+.supply-source-table td, .supply-source-table th { vertical-align: top; }
+.supply-source-table small { display: block; color: #63715e; margin-top: 3px; }
+.supply-source-table td > div + div { margin-top: 8px; }
+.supply-source-table summary { cursor: pointer; white-space: nowrap; }
+.supply-source-detail { min-width: 240px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dfe6dc; }

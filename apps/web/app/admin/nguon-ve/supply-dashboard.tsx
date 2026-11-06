@@ -10,13 +10,65 @@ function LotConfig({lot,onSave,busy}:{lot:Lot;onSave:(lot:Lot,enabled:boolean,pr
 export function SupplyDashboard(){
  const[revision,setRevision]=useState(0),[trash,setTrash]=useState(false);
  const[products,setProducts]=useState<Product[]>([]),[suppliers,setSuppliers]=useState<Supplier[]>([]),[lots,setLots]=useState<Lot[]>([]),[balances,setBalances]=useState<Balance[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const[paySupplier,setPaySupplier]=useState(''),[amount,setAmount]=useState(0),[method,setMethod]=useState('BANK'),[reference,setReference]=useState(''),[payNote,setPayNote]=useState(''),[verified,setVerified]=useState(false),[from,setFrom]=useState(()=>today().slice(0,8)+'01'),[to,setTo]=useState(today),[report,setReport]=useState<Profit|null>(null),[search,setSearch]=useState('');const pendingPay=useRef<{fingerprint:string;requestId:string}|null>(null);
+ const[paySupplier,setPaySupplier]=useState(''),[amount,setAmount]=useState(0),[method,setMethod]=useState('BANK'),[reference,setReference]=useState(''),[payNote,setPayNote]=useState(''),[verified,setVerified]=useState(false),[from,setFrom]=useState(()=>today().slice(0,8)+'01'),[to,setTo]=useState(today),[report,setReport]=useState<Profit|null>(null),[search,setSearch]=useState(''),[sourceSupplier,setSourceSupplier]=useState('');const pendingPay=useRef<{fingerprint:string;requestId:string}|null>(null);
  const balance=balances.find(s=>s.id===paySupplier);
  async function load(){const[l,b]=await Promise.all([adminApi('supply/lots'),adminApi('supply/balances')]);setLots(l.data);setBalances(b.data);setRevision(n=>n+1);}
  useEffect(()=>{Promise.all([adminApi('products'),adminApi('suppliers'),load()]).then(([p,s])=>{setProducts(p.data);setSuppliers(s.data);}).catch(e=>setError(e.message));},[]);
  async function mutate(path:string,payload:unknown,message:string){setBusy(true);setError('');setNotice('');try{await adminApi(path,payload);await load();setNotice(message);return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
+ const query=search.trim().toLocaleLowerCase('vi');
+ const filteredLots=lots.filter(lot=>!!lot.archived===trash
+   &&(!sourceSupplier||lot.supplier_id===sourceSupplier)
+   &&[lot.data.productName,lot.data.variantName,lot.data.supplierName].join(' ').toLocaleLowerCase('vi').includes(query));
+ const packageRows=new Map<string,Lot[]>();
+ for(const lot of filteredLots){
+   const key=JSON.stringify([lot.supplier_id,lot.product_id,lot.variant_id]);
+   const row=packageRows.get(key);
+   if(row)row.push(lot);
+   else packageRows.set(key,[lot]);
+ }
+ const guestColumns=Object.keys(groups).filter(group=>filteredLots.some(lot=>lot.customer_type===group));
  return <><SupplyAlerts revision={revision}/><p className="admin-hint">Giá vốn cố định theo từng nguồn: nhập sẵn theo lô hoặc lấy vé theo đơn. Tự phân bổ ưu tiên số nhỏ trước, cùng ưu tiên lấy giá rẻ trước rồi lô nhập trước. Tồn lô phục vụ phân bổ nguồn; giới hạn bán web vẫn cấu hình tại <Link href="/admin/ton-ve">Tồn vé</Link>.</p>{error&&<p className="admin-error" role="alert">{error}</p>}{notice&&<p className="admin-success" role="status">{notice}</p>}<SupplyBatchForm products={products} suppliers={suppliers} busy={busy} mutate={mutate}/>
- <section className="supply-card"><div className="content-list-tools"><h2>Các nguồn cung ({lots.filter(l=>!!l.archived===trash).length})</h2><button className="outline-button" disabled={busy} onClick={()=>void load().catch(e=>setError(e.message))}>Tải lại lô & công nợ</button></div><label className="checkbox-label"><input type="checkbox" checked={trash} onChange={e=>setTrash(e.target.checked)}/>Xem thùng rác nguồn vé</label><input aria-label="Tìm lô" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm sản phẩm, nhà cung cấp…"/>{lots.filter(l=>!!l.archived===trash&&(l.data.productName+' '+l.data.supplierName).toLowerCase().includes(search.toLowerCase())).map(lot=><article className="supply-lot" id={'supply-lot-'+lot.id} key={lot.id}><div><strong>{lot.data.productName} · {lot.data.variantName}</strong><p>{lot.data.supplierName} · {groups[lot.customer_type]} · {money(lot.unit_cost)}/vé</p><small>{lot.valid_from} → {lot.valid_to==='9999-12-31'?'Không giới hạn':lot.valid_to} · {lot.unlimited?<>Lấy theo đơn · Không giới hạn số lượng · Đã lấy {lot.purchased_quantity} · Đang phân bổ {lot.used}</>:<>Nhập {lot.total_quantity} · Đã phân bổ {lot.used} · Còn <b>{lot.remaining}</b></>}</small>{lot.data.note&&<p>{lot.data.note}</p>}</div>{!lot.archived&&<LotConfig key={lot.id+':'+lot.version} lot={lot} busy={busy} onSave={(lot,enabled,priority)=>void mutate('supply/lots/'+lot.id+'/config',{version:lot.version,enabled,priority},'Đã cập nhật trạng thái / ưu tiên lô.')}/>}<SourceEditor key={'edit:'+lot.id+':'+lot.version} lot={lot} busy={busy} onSave={mutate}/></article>)}</section>
+ <section className="supply-card">
+   <div className="content-list-tools">
+     <h2>Các nguồn cung ({packageRows.size} gói)</h2>
+     <button className="outline-button" disabled={busy} onClick={()=>void load().catch(e=>setError(e.message))}>Tải lại lô & công nợ</button>
+   </div>
+   <div className="field-grid">
+     <label>Nhà cung cấp<select value={sourceSupplier} onChange={e=>setSourceSupplier(e.target.value)}>
+       <option value="">Tất cả nhà cung cấp</option>
+       {suppliers.map(supplier=><option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
+     </select></label>
+     <label>Tìm nguồn<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Tìm sản phẩm, gói vé…"/></label>
+   </div>
+   <label className="checkbox-label"><input type="checkbox" checked={trash} onChange={e=>setTrash(e.target.checked)}/>Xem thùng rác nguồn vé</label>
+   {packageRows.size===0?<p className="admin-hint">Không có nguồn phù hợp.</p>:<div className="report-table supply-source-table">
+     <table>
+       <thead><tr><th>Sản phẩm / gói vé</th><th>Nhà cung cấp</th>{guestColumns.map(group=><th key={group}>{groups[group]}</th>)}<th>Chi tiết nguồn</th></tr></thead>
+       <tbody>{Array.from(packageRows,([key,row])=><tr key={key}>
+         <th scope="row">{row[0].data.productName}<small>{row[0].data.variantName}</small></th>
+         <td>{row[0].data.supplierName}</td>
+         {guestColumns.map(group=>{
+           const prices=row.filter(lot=>lot.customer_type===group);
+           return <td key={group}>{prices.length?prices.map(lot=><div key={lot.id}>
+             <strong>{money(lot.unit_cost)}</strong>
+             {prices.length>1&&<small>{lot.valid_from} → {lot.valid_to==='9999-12-31'?'Không giới hạn':lot.valid_to}</small>}
+             {!lot.enabled&&!lot.archived&&<small>Đã tắt</small>}
+           </div>):'—'}</td>;
+         })}
+         <td><details><summary>{row.length} nguồn · Xem / sửa</summary>
+           {row.map(lot=><article className="supply-source-detail" id={'supply-lot-'+lot.id} key={lot.id}>
+             <strong>{groups[lot.customer_type]} · {money(lot.unit_cost)}/vé</strong>
+             <small>{lot.valid_from} → {lot.valid_to==='9999-12-31'?'Không giới hạn':lot.valid_to}</small>
+             <small>{lot.unlimited?`Lấy theo đơn · Đã lấy ${lot.purchased_quantity}`:`Nhập ${lot.total_quantity} · Còn ${lot.remaining}`} · Đã phân bổ {lot.used}</small>
+             {lot.data.note&&<p>{lot.data.note}</p>}
+             {!lot.archived&&<LotConfig key={lot.id+':'+lot.version} lot={lot} busy={busy} onSave={(lot,enabled,priority)=>void mutate('supply/lots/'+lot.id+'/config',{version:lot.version,enabled,priority},'Đã cập nhật trạng thái / ưu tiên lô.')}/>}
+             <SourceEditor key={lot.id+':'+lot.version} lot={lot} busy={busy} onSave={mutate}/>
+           </article>)}
+         </details></td>
+       </tr>)}</tbody>
+     </table>
+   </div>}
+ </section>
  <section className="supply-card"><h2>Công nợ nhà cung cấp — toàn bộ thời gian</h2><p><Link href="/admin/doi-soat-ncc">Đối soát theo ngày & xuất CSV ↗</Link></p><div className="report-table"><table><thead><tr><th>Nhà cung cấp</th><th>Giá trị vé phải trả</th><th>Đã trả</th><th>Còn phải trả</th></tr></thead><tbody>{balances.map(s=><tr key={s.id}><td>{s.name}</td><td>{money(s.purchased)}</td><td>{money(s.paid)}</td><td><strong>{money(s.balance)}</strong></td></tr>)}</tbody></table></div><h3>Ghi nhận tiền đã trả</h3><p className="admin-hint">Chỉ ghi sổ sau khi đã thanh toán thực tế; thao tác này không chuyển tiền ngân hàng.</p><form onSubmit={async e=>{e.preventDefault();if(!verified)return;const payload={supplierId:paySupplier,amount,method,reference:method==='BANK'?reference:'',note:payNote},fingerprint=JSON.stringify(payload);if(pendingPay.current?.fingerprint!==fingerprint)pendingPay.current={fingerprint,requestId:crypto.randomUUID()};if(await mutate('supply/payments',{...payload,requestId:pendingPay.current.requestId},'Đã ghi nhận tiền trả nhà cung cấp.')){pendingPay.current=null;setVerified(false);setReference('');setPayNote('');}}}><fieldset disabled={busy}><div className="field-grid"><label>Nhà cung cấp<select required value={paySupplier} onChange={e=>{setPaySupplier(e.target.value);setVerified(false);}}><option value="">Chọn nhà cung cấp</option>{balances.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Số tiền (VND)<input type="number" min={1} max={balance?.balance||15000000000} required value={amount} onChange={e=>{setAmount(Number(e.target.value));setVerified(false);}}/></label><label>Phương thức<select value={method} onChange={e=>{setMethod(e.target.value);setVerified(false);}}><option value="BANK">Chuyển khoản</option><option value="CASH">Tiền mặt</option></select></label>{method==='BANK'&&<label>Mã giao dịch<input required maxLength={200} value={reference} onChange={e=>setReference(e.target.value)}/></label>}<label>Ghi chú<input required maxLength={1000} value={payNote} onChange={e=>setPayNote(e.target.value)}/></label></div><label className="checkbox-label"><input type="checkbox" required checked={verified} onChange={e=>setVerified(e.target.checked)}/>Tôi đã trả thực tế {money(amount)} cho nhà cung cấp đã chọn.</label><button className="button" disabled={busy||!verified||!paySupplier}>Ghi nhận đã trả</button></fieldset></form>{balance&&<details className="supplier-payments"><summary>Lịch sử trả tiền ({balance.payments.length})</summary>{balance.payments.map(p=><p key={p.id}>{new Date(p.created_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} · {money(p.amount)} · {p.method} · {p.reference} · {p.note}</p>)}</details>}</section>
  <section className="supply-card"><h2>Lợi nhuận gộp vé đã thu / ghi công nợ CTV</h2><p className="admin-hint">Theo ngày tạo đơn. Chỉ tính lợi nhuận cho đơn đã phân bổ đủ giá vốn, kể cả đơn lưu trữ; không gồm đơn hủy. Đây không phải dòng tiền hay lợi nhuận sau chi phí vận hành.</p><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{setReport(await adminApi('supply/profit?'+new URLSearchParams({from,to})));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><fieldset className="supply-report-filter" disabled={busy}><DatePicker label="Từ ngày" value={from} onChange={date=>{setFrom(date);setReport(null);}} disabled={busy}/><DatePicker label="Đến ngày" value={to} min={from} onChange={date=>{setTo(date);setReport(null);}} disabled={busy}/><button className="button">Xem báo cáo</button></fieldset></form>{report&&<><div className="admin-stats"><div><span>Doanh thu đã đủ vốn</span><strong>{money(report.revenue)}</strong></div><div><span>Giá vốn tương ứng</span><strong>{money(report.cost)}</strong></div><div><span>Lợi nhuận gộp</span><strong>{money(report.grossProfit)}</strong></div></div><p className="admin-hint">Chưa đủ giá vốn: {report.uncosted} đơn, giá trị {money(report.uncostedRevenue)} — chưa cộng vào lợi nhuận.</p><div className="report-table"><table><thead><tr><th>Đơn</th><th>Doanh thu sau giảm</th><th>Vốn đã ghi</th><th>Lợi nhuận gộp</th></tr></thead><tbody>{report.rows.map(row=><tr key={row.id}><td><Link href={'/admin/don-hang?order='+row.id}>{row.code}</Link></td><td>{money(row.revenue)}</td><td>{money(row.cost)}</td><td>{row.complete?money(row.profit!):'Chưa đủ vốn'}</td></tr>)}</tbody></table></div></>}</section></>;
 }
