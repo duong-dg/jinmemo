@@ -35,3 +35,44 @@
  .weather-compact .weather-credit{margin-top:20px;font-size:12px}
  .weather-compact .weather-credit small{font-size:11px}
 }
+
+.product-gallery-photo { position: relative; }
+.destination-weather.weather-on-photo {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  width: min(330px, calc(100% - 28px));
+  margin: 0;
+  background: #ffffffed;
+  border-color: #ffffff90;
+  box-shadow: 0 6px 22px #183b3320;
+  backdrop-filter: blur(12px);
+}
+.weather-on-photo .weather-disclosure > summary { padding: 14px; gap: 12px; }
+.weather-on-photo .weather-summary-icon { font-size: 28px; }
+.weather-on-photo .weather-summary-copy { gap: 5px; }
+.weather-on-photo .weather-summary-copy > span:first-child { font-size: 12px; }
+.weather-on-photo .weather-summary-copy > strong { font-size: 26px; gap: 8px; }
+.weather-on-photo .weather-summary-copy > strong small { font-size: 12px; }
+.weather-on-photo .weather-summary-toggle { font-size: 11px; }
+.weather-on-photo .weather-disclosure-body {
+  max-height: min(360px, 55dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 14px 16px;
+}
+.weather-on-photo .weather-days { gap: 6px; margin-bottom: 14px; }
+.weather-on-photo .weather-days button { padding: 10px 4px; gap: 5px; }
+.weather-on-photo .weather-days strong { font-size: 12px; }
+.weather-on-photo .weather-day-icon { font-size: 24px; }
+.weather-on-photo .weather-days button > span:not(.weather-day-icon) { font-size: 14px; }
+.weather-on-photo .weather-days small { font-size: 11px; }
+.weather-on-photo .weather-tips h3 { font-size: 15px; }
+.weather-on-photo .weather-tips ul { font-size: 13px; gap: 6px; }
+@media (max-width: 600px) {
+  .destination-weather.weather-on-photo { top: 10px; right: 10px; width: min(280px, calc(100% - 20px)); }
+  .weather-on-photo .weather-disclosure > summary { padding: 10px 12px; gap: 9px; }
+  .weather-on-photo .weather-summary-copy > strong { font-size: 22px; }
+  .weather-on-photo .weather-summary-toggle { display: none; }
+}

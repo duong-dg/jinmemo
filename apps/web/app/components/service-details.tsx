@@ -9,7 +9,7 @@ export function ServiceDetails({details, en=false}: {details?: Details; en?: boo
       <h3>{en ? 'Included' : 'Bao gồm'}</h3>
       <ul>{included.map((line,index)=><li key={index}><span className="service-included" aria-hidden="true">✓</span><span>{line}</span></li>)}</ul>
     </section>}
-    {excluded.length > 0 && <section>
+    {excluded.length > 0 && <section className="service-not-included">
       <h3>{en ? 'Not included' : 'Chưa bao gồm'}</h3>
       <ul>{excluded.map((line,index)=><li key={index}><span className="service-excluded" aria-hidden="true">−</span><span>{line}</span></li>)}</ul>
     </section>}

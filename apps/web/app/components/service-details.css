@@ -8,3 +8,9 @@
 .service-included { color: #3e7950; font-weight: 700; }
 .service-excluded { color: #a27658; font-weight: 700; }
 @media (max-width: 600px) { .service-details { grid-template-columns: minmax(0,1fr); gap: 12px; } }
+
+.service-details .service-not-included {
+  background: #fff0e4;
+  border-color: #f1c29e;
+}
+.service-not-included h3, .service-not-included .service-excluded { color: #b35228; }
