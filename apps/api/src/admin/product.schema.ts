@@ -16,6 +16,21 @@ const rule = z.object({ id, productId: id, variantId: id, customerType: z.enum([
   weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7).optional(), priority: z.number().int().min(0).max(10000), amount: money }).strict();
 const closure = z.object({ weekdays:z.array(z.number().int().min(1).max(7)).min(1).max(7).refine(days=>new Set(days).size===days.length,'Các thứ khóa bán không được trùng.').optional(), productId: id, variantId: id.optional(), startDate: date, endDate: date, reason: text.max(200).optional() }).strict();
 export const productSchema = z.object({
+  location:z.object({
+    address:z.string().trim().max(500).default(''),
+    addressEn:z.string().trim().max(500).default(''),
+    mapUrl:z.string().trim().max(2000).default('').refine(value=>{
+      if(!value)return true;
+      try {
+        const url=new URL(value);
+        if(url.protocol!=='https:'||url.username||url.password||url.port)return false;
+        if(url.hostname==='maps.app.goo.gl')return true;
+        if(url.hostname==='goo.gl')return url.pathname.startsWith('/maps');
+        if(['maps.google.com','maps.google.com.vn'].includes(url.hostname))return true;
+        return ['google.com','www.google.com','google.com.vn','www.google.com.vn'].includes(url.hostname)&&/^\/maps(?:\/|$)/.test(url.pathname);
+      }catch{return false;}
+    },'Nhập link Google Maps HTTPS hợp lệ.')
+  }).strict().optional(),
   tourInfo:tourInfoSchema.optional(),transport:transportConfig.optional(),
   onlineDiscount:onlineDiscountSchema.optional(),
   id, supplierId:z.uuid().optional(),slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(160),

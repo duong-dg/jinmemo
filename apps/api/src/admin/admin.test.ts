@@ -37,6 +37,11 @@ test('admin authentication, persistent catalog, schedules and public isolation',
     const product = (await (await call('/admin/products')).json()).data[0];
     const initialVersion=product.version;assert.ok(initialVersion>=1);assert.ok(product.destinationId);
     product.name = 'Edited product';
+    for(const mapUrl of ['javascript:alert(1)','https://maps.app.goo.gl.evil.test/example','https://example.test/maps']){
+      assert.equal((await call('/admin/products',{...product,location:{address:'Hội An',mapUrl}})).status,400);
+    }
+    product.location={address:'123 đường thử, Hội An',addressEn:'123 Test Street, Hoi An',mapUrl:'https://maps.app.goo.gl/test'};
+
     product.english = { name: 'Private draft', description: '', seoTitle: '', seoDescription: '', status: 'DRAFT' };
     product.variants[0].prices.ADULT = 123000;
     product.rules = [{ id: 'summer', productId: product.id, variantId: product.variants[0].id, customerType: 'ADULT', startDate: '2027-06-01', endDate: '2027-08-31', priority: 10, amount: 456000 }];
@@ -45,6 +50,7 @@ test('admin authentication, persistent catalog, schedules and public isolation',
     res = await call('/admin/products', product); assert.equal(res.status, 201); const saved = (await res.json()).data; assert.equal(saved.version, initialVersion+1);
     assert.equal((await call('/admin/products', product)).status, 409, 'stale edit must not overwrite');
     const publicData = (await (await call(`/products/${product.slug}`)).json()).data;
+    assert.deepEqual(publicData.location,product.location);
     assert.equal(publicData.name, 'Edited product'); assert.equal(publicData.english, undefined); assert.equal(publicData.rules, undefined);
     res = await call('/quotes', { productId: product.id, variantId: product.variants[0].id, date: '2027-06-01', quantities: { ADULT: 2 } });
     assert.equal(res.status, 201); assert.equal((await res.json()).total, 912000);
