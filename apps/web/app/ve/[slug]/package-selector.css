@@ -10,3 +10,31 @@
 .tour-booking-facts{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 14px}.tour-booking-facts span{display:inline-flex;padding:7px 10px;border-radius:8px;background:#f1f5ed;color:#4b6553;font-size:13px;line-height:1.5}
 
 .tour-highlights{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0 20px}.tour-highlights>strong{flex-basis:100%}.tour-highlights>span{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:#edf5ed;color:#315b43;font-size:13px}.tour-highlights svg{width:30px;height:30px;flex:none}.tour-highlights b{display:block;font-size:16px}
+
+.package-option-wrap { position: relative; }
+.package-option-wrap:has(.package-info-trigger) .package-option > summary { padding-right: 84px; }
+.package-info-trigger {
+  position: absolute; top: 8px; right: 38px; display: inline-grid; place-items: center;
+  width: 36px; height: 36px; padding: 0; background: #fff5ed; color: #bf6138;
+  border: 1px solid #f0dacb; border-radius: 50%; cursor: pointer;
+}
+.package-info-trigger:hover { background: #ffe7d5; }
+.package-info-dialog {
+  width: min(700px, calc(100% - 32px)); max-height: calc(100dvh - 40px);
+  padding: 24px; border: 0; border-radius: 20px; background: white; color: var(--ink);
+  box-shadow: 0 20px 70px #183b3340; overflow: auto; overscroll-behavior: contain;
+}
+.package-info-dialog::backdrop { background: #183b3370; backdrop-filter: blur(3px); }
+.package-info-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.package-info-dialog > header p { margin: 0 0 8px; font-size: 11px; letter-spacing: .1em; color: #6c806b; }
+.package-info-dialog > header h2 { font-size: 24px; margin: 0; line-height: 1.4; }
+.package-info-dialog > header button {
+  width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%; border: 1px solid #e1e7dc;
+  background: #f4f7f0; color: var(--ink); font-size: 24px; cursor: pointer;
+}
+.package-info-dialog footer { display: flex; justify-content: flex-end; }
+.package-info-dialog .button { min-height: 44px; padding: 12px 20px; margin: 0; }
+@media (max-width: 600px) {
+  .package-info-dialog { width: 100%; max-width: 100%; max-height: 90dvh; margin: auto 0 0; border-radius: 20px 20px 0 0; padding: 22px 18px calc(20px + env(safe-area-inset-bottom)); }
+  .package-info-dialog footer .button { width: 100%; }
+}

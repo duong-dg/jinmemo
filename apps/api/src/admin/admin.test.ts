@@ -37,6 +37,9 @@ test('admin authentication, persistent catalog, schedules and public isolation',
     const product = (await (await call('/admin/products')).json()).data[0];
     const initialVersion=product.version;assert.ok(initialVersion>=1);assert.ok(product.destinationId);
     product.name = 'Edited product';
+    product.serviceDetails={included:'Vé vào cổng\nHướng dẫn viên',excluded:'Đồ uống',includedEn:'Admission\nGuide',excludedEn:'Drinks'};
+    product.variants[0].serviceDetails={custom:true,included:'Vé và buffet',excluded:'Chi phí cá nhân',includedEn:'Ticket and buffet',excludedEn:'Personal expenses'};
+
     for(const mapUrl of ['javascript:alert(1)','https://maps.app.goo.gl.evil.test/example','https://example.test/maps']){
       assert.equal((await call('/admin/products',{...product,location:{address:'Hội An',mapUrl}})).status,400);
     }
@@ -50,6 +53,8 @@ test('admin authentication, persistent catalog, schedules and public isolation',
     res = await call('/admin/products', product); assert.equal(res.status, 201); const saved = (await res.json()).data; assert.equal(saved.version, initialVersion+1);
     assert.equal((await call('/admin/products', product)).status, 409, 'stale edit must not overwrite');
     const publicData = (await (await call(`/products/${product.slug}`)).json()).data;
+    assert.deepEqual(publicData.serviceDetails,product.serviceDetails);
+    assert.deepEqual(publicData.variants[0].serviceDetails,product.variants[0].serviceDetails);
     assert.deepEqual(publicData.location,product.location);
     assert.equal(publicData.name, 'Edited product'); assert.equal(publicData.english, undefined); assert.equal(publicData.rules, undefined);
     res = await call('/quotes', { productId: product.id, variantId: product.variants[0].id, date: '2027-06-01', quantities: { ADULT: 2 } });
