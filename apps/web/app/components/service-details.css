@@ -14,3 +14,7 @@
   border-color: #f1c29e;
 }
 .service-not-included h3, .service-not-included .service-excluded { color: #b35228; }
+
+.service-details > section:only-child {
+  grid-column: 1 / -1;
+}
