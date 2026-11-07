@@ -33,7 +33,9 @@ export function calculateQuote(
 ) {
   validateDate(date);
   const variant = product.variants.find((item) => item.id === variantId);
-  if (!variant) throw new Error('Gói vé không tồn tại.');const timeSlot=checkSchedule(variant,date,slotId,now);
+  if (!variant) throw new Error('Gói vé không tồn tại.');
+  if(variant.saleWindow?.startDate&&date<variant.saleWindow.startDate||variant.saleWindow?.endDate&&date>variant.saleWindow.endDate)throw new Error('Gói vé chưa mở bán cho ngày sử dụng này.');
+  const timeSlot=checkSchedule(variant,date,slotId,now);
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   if (closures.some((item) => item.productId === product.id && (!item.variantId || item.variantId === variantId)
     && item.startDate <= date && date <= item.endDate && (!item.weekdays || item.weekdays.includes(weekday)))) throw new Error('Ngày này đã khóa bán.');

@@ -61,3 +61,13 @@ test('starting offer uses an adult price and the original price of that same pac
  assert.deepEqual(adultStartingOffer({variants:[{prices:{LOCAL_ADULT:315000,CHILD:100000},originalPrices:{LOCAL_ADULT:350000}}]}),{price:315000,originalPrice:350000});
  assert.equal(adultStartingOffer({variants:[{prices:{CHILD:50000}}]}),null);
 });
+
+test('optional package sale window checks inclusive visit dates without affecting other packages',()=>{
+ const limited={...product,variants:product.variants.map(v=>v.id==='eco'?{...v,saleWindow:{startDate:'2027-01-01',endDate:'2027-12-31'}}:v)};
+ for(const date of ['2027-01-01','2027-12-31'])assert.ok(calculateQuote(limited,'eco',date,{ADULT:1}).total>0);
+ for(const date of ['2026-12-31','2028-01-01'])assert.throws(()=>calculateQuote(limited,'eco',date,{ADULT:1}),/chưa mở bán/);
+ assert.ok(calculateQuote(limited,'high','2028-01-01',{ADULT:1}).total>0);
+ const endOnly={...product,variants:product.variants.map(v=>({...v,saleWindow:{endDate:'2027-12-31'}}))};
+ assert.ok(calculateQuote(endOnly,'eco','2027-01-01',{ADULT:1}).total>0);
+ assert.throws(()=>calculateQuote(endOnly,'eco','2028-01-01',{ADULT:1}),/chưa mở bán/);
+});
