@@ -1,5 +1,5 @@
 import'reflect-metadata';
-import{test}from'node:test';import assert from'node:assert/strict';import{randomBytes,randomUUID}from'node:crypto';import{mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{ValidationPipe}from'@nestjs/common';import{Test}from'@nestjs/testing';import{newDb}from'pg-mem';import{AppModule}from'../app.module';import{calculateOnlineQuote,onlineDiscountSchema,onlineUnitPrice}from'./online-discount';import{calculateQuote}from'./pricing';import{productSchema}from'../admin/product.schema';import{PartnersService}from'../partners/partners.service';
+import{test}from'node:test';import assert from'node:assert/strict';import{randomBytes,randomUUID}from'node:crypto';import{mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import{ValidationPipe}from'@nestjs/common';import{Test}from'@nestjs/testing';import{newDb}from'pg-mem';import{AppModule}from'../app.module';import{calculateOnlineQuote,onlineDiscountSchema,onlineUnitPrice,publicOnlineVariants}from'./online-discount';import{calculateQuote}from'./pricing';import{productSchema}from'../admin/product.schema';import{PartnersService}from'../partners/partners.service';
 
 test('online reductions apply per ticket after the visit-date price; variants override, free prices and legacy retail remain intact',()=>{
  const product={id:'p',slug:'p',name:'P',destination:'D',description:'',type:'TICKET',onlineDiscount:{type:'PERCENT' as const,value:10},variants:[{id:'eco',name:'ECO',prices:{ADULT:600000,CHILD:300000,LOCAL_ADULT:350000,LOCAL_CHILD:0}},{id:'high',name:'HIGH',prices:{ADULT:700000},onlineDiscount:{type:'AMOUNT' as const,value:10000}},{id:'vip',name:'VIP',prices:{ADULT:900000},onlineDiscount:{type:'NONE' as const,value:0 as const}}]};
@@ -41,4 +41,17 @@ test('online offers: public prices, mixed basket, exact totals, immutable orders
   memories.onlineDiscount={type:'PERCENT',value:20};memories=await save(memories);assert.equal((await(await call('/quotes',selection)).json()).total,480000);assert.equal((await pool.query('SELECT snapshot FROM jinmemo_orders WHERE code=$1',[order.code])).rows[0].snapshot.total,540000,'saved bookings retain original promotion');assert.equal((await call('/orders',{...orderInput(),requestId:randomUUID()})).status,409,'stale quote is rejected');assert.equal((await(await call('/orders',input)).json()).code,order.code,'idempotent retry returns the old booking even after price changes');
   memories.onlineDiscount={type:'NONE',value:0};await save(memories);assert.equal((await(await call('/quotes',selection)).json()).total,600000);
  }finally{await app.close();await rm(media,{recursive:true,force:true});}
+});
+
+test('package display priority is optional, stable for ties and leaves admin order intact',()=>{
+ const product={id:'p',slug:'p',name:'P',destination:'',type:'TICKET',description:'',variants:[
+  {id:'a',name:'A',prices:{ADULT:100}},
+  {id:'b',name:'B',prices:{ADULT:200},displayOrder:2},
+  {id:'c',name:'C',prices:{ADULT:300},displayOrder:1},
+  {id:'d',name:'D',prices:{ADULT:400},displayOrder:2},
+  {id:'e',name:'E',prices:{ADULT:500}}
+ ]};
+ assert.deepEqual(publicOnlineVariants(product).map(v=>v.id),['c','b','d','a','e']);
+ assert.deepEqual(product.variants.map(v=>v.id),['a','b','c','d','e']);
+ assert.deepEqual(publicOnlineVariants({...product,variants:product.variants.map(({displayOrder,...v})=>v)}).map(v=>v.id),['a','b','c','d','e']);
 });

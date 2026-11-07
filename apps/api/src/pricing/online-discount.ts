@@ -22,7 +22,7 @@ export function calculateOnlineQuote(...args:Parameters<typeof calculateQuote>):
  const total=lines.reduce((sum,line)=>sum+line.subtotal,0),amount=quote.total-total;
  return{...quote,lines,total,...(amount>0&&config?{onlineDiscount:{...config,amount,subtotal:quote.total}}:{})};
 }
-export function publicOnlineVariants(product:Product){return product.variants.map(variant=>{
+export function publicOnlineVariants(product:Product){return [...product.variants].sort((a,b)=>(a.displayOrder??10001)-(b.displayOrder??10001)).map(variant=>{
  const discount=variant.onlineDiscount??product.onlineDiscount;
  return{...variant,originalPrices:{...variant.prices},prices:Object.fromEntries(Object.entries(variant.prices).map(([group,price])=>[group,onlineUnitPrice(price!,discount)]))};
 });}
