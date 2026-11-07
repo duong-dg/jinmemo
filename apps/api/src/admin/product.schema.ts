@@ -24,6 +24,7 @@ const serviceDetailsSchema=z.object({
 }).strict();
 
 export const productSchema = z.object({
+  displayOrder:z.number().int().min(0).max(10000).optional(),
   serviceDetails:serviceDetailsSchema.optional(),
   location:z.object({
     address:z.string().trim().max(500).default(''),

@@ -6,7 +6,7 @@ export interface Variant {saleWindow?:{startDate?:string;endDate?:string};displa
   name: string;
   prices: Partial<Record<CustomerType, number>>;
 }
-export interface Product {tourInfo?:TourInfo;
+export interface Product {displayOrder?:number;tourInfo?:TourInfo;
   onlineDiscount?:OnlineDiscount;
   id: string;
   slug: string;
