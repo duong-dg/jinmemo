@@ -6,7 +6,7 @@ export const planSchema=z.object({
  note:z.string().trim().max(3000).optional(),noteEn:z.string().trim().max(3000).optional(),
  vehicles:z.array(z.object({id,name,englishName:z.string().trim().max(150).optional(),sharedSizes:z.array(z.number().int().min(2).max(60)).max(5).optional(),seats:z.number().int().min(1).max(60),image:z.object({id:z.uuid(),alt:z.string().max(300)}).strict().nullable().optional(),luggageNote:z.string().trim().max(600).default('')}).strict().transform(v=>({...v,sharedSizes:v.sharedSizes??(v.seats>=6?[3,4]:v.seats>=2?[2]:[])}))).max(20),
  areas:z.array(z.object({id,name,central:z.boolean().optional(),englishName:z.string().trim().max(150).optional(),aliases:z.array(z.string().trim().min(1).max(150)).max(20).optional(),parentId:id.optional(),surcharges:z.record(z.string(),money).default({})}).strict()).max(1000),
- fares:z.array(z.object({id,from:id,to:id,vehicleId:id,twoWay:z.boolean().optional(),privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
+ fares:z.array(z.object({id,from:id,to:id,vehicleId:id,roundTripOnly:z.boolean().optional(),roundTripPrice:money.optional(),twoWay:z.boolean().optional(),privatePrice:money,seatPrice:money,durationMinutes:z.number().int().min(1).max(2880).optional()}).strict()).max(300),
  trips:z.array(z.object({id,from:id,to:id,vehicleId:id,date,start:time,end:time,departure:time,cutoffMinutes:z.number().int().min(0).max(1440),seatPrice:money,status:z.enum(['DRAFT','OPEN','CLOSED'])}).strict()).max(200),
  requests:z.array(z.object({id,label:name,from:id,to:id,date,time,flexMinutes:z.union([z.literal(0),z.literal(30),z.literal(60)]),passengers:z.number().int().min(1).max(60),status:z.enum(['WAITING','HELD','CONFIRMED','CANCELLED']),tripId:id.optional()}).strict()).max(300)
 }).strict().superRefine((p,ctx)=>{
@@ -30,13 +30,13 @@ export function compatible(p:TransportPlan,r:RideRequest,t:SharedTrip){return r.
 export function remainingSeats(p:TransportPlan,t:SharedTrip,excludeRequest?:string){return(p.vehicles.find(v=>v.id===t.vehicleId)?.seats||0)-p.requests.filter(r=>r.id!==excludeRequest&&r.tripId===t.id&&(r.status==='HELD'||r.status==='CONFIRMED')).reduce((n,r)=>n+r.passengers,0);}
 export function tripOpen(t:SharedTrip,now=Date.now()){return t.status==='OPEN'&&now<new Date(t.date+'T'+t.departure+':00+07:00').getTime()-t.cutoffMinutes*60000;}
 export function suggestTrips(p:TransportPlan,r:RideRequest,now=Date.now()){if(r.status==='CANCELLED')return[];return p.trips.filter(t=>tripOpen(t,now)&&compatible(p,r,t)&&remainingSeats(p,t,r.id)>=r.passengers).map(t=>t.id);}
-type PlanQuote={vehicleId:string;error?:string;fareId?:string;base?:number;surcharge?:number;total?:number;seatPrice?:number;exact?:boolean;durationMinutes?:number};
+type PlanQuote={roundTripOnly?:boolean;roundTripPrice?:number;vehicleId:string;error?:string;fareId?:string;base?:number;surcharge?:number;total?:number;seatPrice?:number;exact?:boolean;durationMinutes?:number};
 export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:number){
  const starts=ancestors(p,from),ends=ancestors(p,to);if(!starts.length||!ends.length||from===to)return[];
  return p.vehicles.filter(v=>v.seats>=passengers).flatMap<PlanQuote>(v=>{
   const candidates=p.fares.filter(f=>f.vehicleId===v.id).flatMap(f=>{const forward=starts.includes(f.from)&&ends.includes(f.to),reverse=f.twoWay&&starts.includes(f.to)&&ends.includes(f.from);if(!forward&&!reverse)return[];const routeFrom=forward?f.from:f.to,routeTo=forward?f.to:f.from;return[{f,routeFrom,routeTo,score:starts.indexOf(routeFrom)+ends.indexOf(routeTo)}];}).sort((a,b)=>a.score-b.score);
   if(!candidates.length)return[];if(candidates[1]?.score===candidates[0].score)return[{vehicleId:v.id,error:'Có nhiều giá tuyến cùng mức ưu tiên. Cần nhập giá riêng cho tuyến này.'}];
   const {f,score,routeFrom,routeTo}=candidates[0];const traversed=[...starts.slice(0,starts.indexOf(routeFrom)),...ends.slice(0,ends.indexOf(routeTo))],surcharge=traversed.reduce((n,id)=>n+(p.areas.find(a=>a.id===id)?.surcharges[v.id]||0),0);
-  return[{vehicleId:v.id,fareId:f.id,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
+  return[{vehicleId:v.id,fareId:f.id,roundTripOnly:f.roundTripOnly,roundTripPrice:f.roundTripPrice,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
  });
 }

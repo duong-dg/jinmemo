@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import {test} from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {newDb} from 'pg-mem';import {Test} from '@nestjs/testing';import {AppModule} from '../app.module';import {planSchema} from './planning.schema';import {checkRideDate,splitShare,RidesService} from './rides.module';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {newDb} from 'pg-mem';import {Test} from '@nestjs/testing';import {AppModule} from '../app.module';import {planSchema} from './planning.schema';import {checkReturnTime,checkRideDate,splitShare,RidesService} from './rides.module';
 test('calendar and equal shares reject invalid dates and conserve every dong',()=>{assert.throws(()=>checkRideDate('2099-02-30','09:00'));assert.throws(()=>checkRideDate('2020-01-01','09:00'));assert.doesNotThrow(()=>checkRideDate('2099-06-01','09:00'));for(const total of [300000,300001,300002,400001])for(const size of [2,3,4]){const parts=Array.from({length:size},(_,i)=>splitShare(total,size,i,1));assert.equal(parts.reduce((n,x)=>n+x,0),total);assert.ok(Math.max(...parts)-Math.min(...parts)<=1);}});
 test('only configured positive base fares are searchable, even when a ward has an extra charge',async()=>{const plan=planSchema.parse({enabled:true,vehicles:[{id:'v',name:'Car',seats:3}],areas:[{id:'ha',name:'Hội An'},{id:'dn',name:'Đà Nẵng'},{id:'ward',name:'Ward',parentId:'dn',surcharges:{v:50000}},{id:'other',name:'Not served'}],fares:[{id:'f',from:'ha',to:'dn',vehicleId:'v',privatePrice:0,seatPrice:0}],trips:[],requests:[]});const service=new RidesService({} as any);service.plan=async()=>plan;const input={from:'ha',to:'ward',passengers:1,date:'2099-06-01',time:'10:00',flexMinutes:0 as const,mode:'PRIVATE' as const};assert.deepEqual(await service.offers(plan,input),[]);assert.deepEqual((await service.catalog()).data.areas,[]);plan.fares[0].privatePrice=300000;assert.equal((await service.offers(plan,input))[0].total,350000);assert.deepEqual((await service.catalog()).data.areas.map(a=>a.id),['ha','dn','ward']);});
 test('customers create and fill shared groups; section saves do not overwrite each other; notification reads preserve newer events',async()=>{
@@ -14,5 +14,26 @@ test('customers create and fill shared groups; section saves do not overwrite ea
  const current=await(await call('/admin/transport-plan',undefined,cookie)).json();assert.equal((await call('/admin/transport-plan/sections/vehicles',{version:current.sectionVersions.vehicles,rows:[]},cookie)).status,400);assert.equal((await call('/admin/transport-plan',{version:current.version,plan:{...current.plan,areas:[]}},cookie)).status,400);
  for(const status of ['WAITING_PICKUP','PICKED_UP','RUNNING','COMPLETED']){const active=(await pool.query("SELECT * FROM jinmemo_ride_bookings WHERE trip_id=$1 AND status!='CANCELLED'",[a.trip_id])).rows[0];res=await call('/admin/rides/'+active.id,{...patch,version:active.version,status,driver:'Tài xế',driverPhone:'0901234567',plate:'43A-12345'},cookie);assert.equal(res.status,201,await res.clone().text());const all=(await pool.query("SELECT * FROM jinmemo_ride_bookings WHERE trip_id=$1 AND status!='CANCELLED'",[a.trip_id])).rows;assert.ok(all.every((b:any)=>b.status===status));}
  res=await call('/rides',{...input,requestKey:randomUUID(),time:'11:00'});assert.equal(res.status,201);await call('/admin/notifications/read',{cursor},cookie);inbox=await(await call('/admin/notifications',undefined,cookie)).json();assert.equal(inbox.car,1,'stale read cursor never swallows newer events');assert.equal((await pool.query('SELECT * FROM jinmemo_order_payments')).rowCount,0);
+
+ const latest=await(await call('/admin/transport-plan',undefined,cookie)).json();
+ res=await call('/admin/transport-plan/sections/fares',{version:latest.sectionVersions.fares,rows:latest.plan.fares.map((f:any)=>({...f,roundTripOnly:true}))},cookie);assert.equal(res.status,201,await res.clone().text());
+ const privateQuery={...query,mode:'PRIVATE'},returnQuotes=(await(await call('/rides/quotes',privateQuery)).json()).data,returnQuote=returnQuotes.find((q:any)=>q.vehicleId==='v4');assert.equal(returnQuote.roundTrip,true);
+ const returnInput={...input,...privateQuery,shareSize:undefined,requestKey:randomUUID(),expectedTotal:returnQuote.total,returnTime:'09:00'};
+ assert.equal((await call('/rides',returnInput)).status,400,'return pickup cannot precede departure');
+ res=await call('/rides',{...returnInput,returnTime:'18:00'});assert.equal(res.status,201,await res.clone().text());const returnCode=(await res.json()).code;
+ const savedReturn=(await pool.query('SELECT data FROM jinmemo_ride_bookings WHERE code=$1',[returnCode])).rows[0].data;assert.equal(savedReturn.roundTrip,true);assert.equal(savedReturn.returnTime,'18:00');assert.equal(savedReturn.total,returnQuote.total);
  }finally{await app.close();}
+});
+
+test('same-day return fares are explicit, forced for return-only routes, and never enter shared pools',async()=>{
+ const plan=planSchema.parse({enabled:true,vehicles:[{id:'v',name:'Car',seats:4}],areas:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'ward',name:'Ward',parentId:'b',surcharges:{v:50000}}],fares:[{id:'f',from:'a',to:'b',vehicleId:'v',twoWay:true,privatePrice:300000,roundTripPrice:500000,seatPrice:0}],trips:[],requests:[]});
+ const service=new RidesService({} as any),input={from:'a',to:'ward',date:'2099-06-01',time:'10:00',passengers:2,mode:'PRIVATE' as const,flexMinutes:0 as const};
+ assert.equal((await service.offers(plan,input))[0].total,350000);
+ const offer=(await service.offers(plan,{...input,roundTrip:true}))[0];assert.equal(offer.total,600000);assert.equal(offer.roundTrip,true);
+ plan.fares[0].roundTripPrice=undefined;assert.deepEqual(await service.offers(plan,{...input,roundTrip:true}),[]);
+ plan.fares[0].roundTripOnly=true;const forced=(await service.offers(plan,input))[0];assert.equal(forced.roundTrip,true);assert.equal(forced.total,400000);
+ assert.deepEqual(await service.offers(plan,{...input,mode:'SHARED'}),[]);
+ assert.doesNotThrow(()=>checkReturnTime(true,'10:00','17:30'));assert.doesNotThrow(()=>checkReturnTime(true,'10:00'));
+ for(const time of ['09:00','10:00'])assert.throws(()=>checkReturnTime(true,'10:00',time),/Giờ về/);
+ assert.throws(()=>checkReturnTime(false,'10:00','17:00'),/Giờ về/);
 });

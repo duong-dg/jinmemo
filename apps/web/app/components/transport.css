@@ -41,3 +41,5 @@
 .ride-date-control .date-popover { position: absolute; z-index: 15; top: 100%; left: 0; width: min(320px, calc(100vw - 48px)); }
 .ride-search-grid .time-picker { padding: 0 10px; }
 .ride-search-grid .time-picker-controls select:focus-visible { outline-offset: -2px; }
+
+.ride-return-toggle{display:flex!important;align-items:center;gap:8px;margin:12px 0 0;font-size:14px}.ride-return-toggle input[type=checkbox]{width:17px!important;height:17px;min-height:0;flex:0 0 17px;accent-color:#e67840}.ride-return-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,1fr);gap:12px;margin:16px 0;padding:16px;background:#fff7ef;border:1px solid #f1dbc8;border-radius:12px}.ride-return-fields>strong,.ride-return-fields>small{grid-column:1/-1}.ride-return-fields>strong{font-size:14px}.ride-return-fields>small{font-size:12px;line-height:1.6;color:#7c756b}.ride-return-fields .ride-return-toggle{margin:0;align-self:center}@media(max-width:600px){.ride-return-fields{grid-template-columns:minmax(0,1fr)}}
