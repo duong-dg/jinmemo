@@ -7,13 +7,14 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "tsx --test lib/supply-paste.test.ts lib/ride-area-rules.test.ts lib/product-domains.test.ts lib/payment-methods.test.ts lib/blog-posts.test.ts lib/share-metadata.test.ts lib/social-share.test.ts lib/sales-cart.test.ts lib/sale-calendar.test.ts lib/ticket-files.test.ts lib/site-seo.test.ts lib/localized-urls.test.ts lib/destinations.test.ts"
+    "test": "tsx --test lib/fare-excel.test.ts lib/supply-paste.test.ts lib/ride-area-rules.test.ts lib/product-domains.test.ts lib/payment-methods.test.ts lib/blog-posts.test.ts lib/share-metadata.test.ts lib/social-share.test.ts lib/sales-cart.test.ts lib/sale-calendar.test.ts lib/ticket-files.test.ts lib/site-seo.test.ts lib/localized-urls.test.ts lib/destinations.test.ts"
   },
   "dependencies": {
     "@tiptap/extension-image": "^3.32.0",
     "@tiptap/extension-link": "^3.32.0",
     "@tiptap/react": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
+    "exceljs": "^4.4.0",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
