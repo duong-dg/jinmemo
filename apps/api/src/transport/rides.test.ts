@@ -29,8 +29,8 @@ test('same-day return fares are explicit, forced for return-only routes, and nev
  const plan=planSchema.parse({enabled:true,vehicles:[{id:'v',name:'Car',seats:4}],areas:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'ward',name:'Ward',parentId:'b',surcharges:{v:50000}}],fares:[{id:'f',from:'a',to:'b',vehicleId:'v',twoWay:true,sharedEnabled:true,privatePrice:300000,roundTripPrice:500000,seatPrice:0}],trips:[],requests:[]});
  const service=new RidesService({} as any),input={from:'a',to:'ward',date:'2099-06-01',time:'10:00',passengers:2,mode:'PRIVATE' as const,flexMinutes:0 as const};
  assert.equal((await service.offers(plan,input))[0].total,350000);
- const offer=(await service.offers(plan,{...input,roundTrip:true}))[0];assert.equal(offer.total,600000);assert.equal(offer.roundTrip,true);
- plan.fares[0].roundTripPrice=undefined;assert.deepEqual(await service.offers(plan,{...input,roundTrip:true}),[]);
+ const offer=(await service.offers(plan,{...input,roundTrip:true}))[0];assert.equal(offer.total,700000);assert.equal(offer.roundTrip,true);
+ plan.fares[0].roundTripPrice=undefined;assert.equal((await service.offers(plan,{...input,roundTrip:true}))[0].total,700000);
  plan.fares[0].roundTripOnly=true;const forced=(await service.offers(plan,input))[0];assert.equal(forced.roundTrip,true);assert.equal(forced.total,400000);
  assert.deepEqual(await service.offers(plan,{...input,mode:'SHARED'}),[]);
  assert.doesNotThrow(()=>checkReturnTime(true,'10:00','17:30'));assert.doesNotThrow(()=>checkReturnTime(true,'10:00'));

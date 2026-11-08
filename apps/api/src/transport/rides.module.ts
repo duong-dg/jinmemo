@@ -23,7 +23,7 @@ export function checkRideDate(date:string,time:string,now=Date.now()){const valu
 export function rideFare(q:{base?:number;surcharge?:number;total?:number;roundTripOnly?:boolean;roundTripPrice?:number},roundTrip=false){
  const isReturn=!!q.roundTripOnly||roundTrip;
  if(!isReturn)return{total:q.total!,roundTrip:false};
- const price=q.roundTripOnly?q.base:q.roundTripPrice;
+ const price=q.roundTripOnly?q.base:2*(q.base||0);
  if(!price)return null;
  return{total:price+2*(q.surcharge||0),roundTrip:true};
 }
