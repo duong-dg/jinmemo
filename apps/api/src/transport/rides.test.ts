@@ -38,11 +38,11 @@ test('same-day return fares are explicit, forced for return-only routes, and nev
  assert.throws(()=>checkReturnTime(false,'10:00','17:00'),/Giờ về/);
 });
 
-test('shared ride availability is opt-in per matched route, including inherited wards and reverse direction',async()=>{
+test('shared ride availability is opt-in per matched route, without inheriting parent areas, while respecting reverse direction',async()=>{
  const plan=planSchema.parse({enabled:true,vehicles:[{id:'v',name:'Car',seats:4}],areas:[{id:'a',name:'A'},{id:'b',name:'B'},{id:'w',name:'Ward',parentId:'b'}],fares:[{id:'f',from:'a',to:'b',twoWay:true,vehicleId:'v',privatePrice:300000,seatPrice:0}],trips:[],requests:[]});
  const service=new RidesService({pool:{query:async()=>({rows:[]})}} as any),input={from:'a',to:'w',date:'2099-06-01',time:'10:00',passengers:1,mode:'SHARED' as const,flexMinutes:0 as const};
  assert.deepEqual(await service.offers(plan,input),[]);
  assert.equal((await service.offers(plan,{...input,mode:'PRIVATE'})).length,1);
- plan.fares[0].sharedEnabled=true;assert.equal((await service.offers(plan,input)).length,1);assert.equal((await service.offers(plan,{...input,from:'w',to:'a'})).length,1);
+ plan.fares[0].sharedEnabled=true;assert.deepEqual(await service.offers(plan,input),[]);assert.deepEqual(await service.offers(plan,{...input,from:'w',to:'a'}),[]);assert.equal((await service.offers(plan,{...input,to:'b'})).length,1);assert.equal((await service.offers(plan,{...input,from:'b',to:'a'})).length,1);
  plan.fares[0].sharedEnabled=false;assert.deepEqual(await service.offers(plan,input),[]);
 });
