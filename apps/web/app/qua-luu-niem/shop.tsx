@@ -1,6 +1,7 @@
 'use client';
 import {useRef,useState} from 'react';
 import './shop.css';
+import {GiftAddress} from './gift-address';
 
 export type GiftItem={id:string;name:string;description:string;imageId?:string;price:number;stock:number;active:boolean};
 export type GiftConfig={enabled:boolean;shippingFee:number;items:GiftItem[]};
@@ -9,15 +10,16 @@ export const giftMoney=(n:number)=>n.toLocaleString('vi-VN')+' đ';
 export function GiftShop({catalog}:{catalog:GiftConfig}){
  const [counts,setCounts]=useState<Record<string,number>>({}),[delivery,setDelivery]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[code,setCode]=useState('');
+ const [address,setAddress]=useState('');
  const request=useRef<{key:string;id:string}|null>(null);
  const lines=catalog.items.filter(item=>counts[item.id]>0);
  const subtotal=lines.reduce((sum,item)=>sum+item.price*counts[item.id],0),fee=delivery?catalog.shippingFee:0;
  return <main className="section gift-shop" id="main">
   <h1>Quà lưu niệm</h1><p>Quà handmade · Nhận tại quầy hoặc giao trong Việt Nam</p>
   {code?<p role="status">Đã đặt hàng. Mã đơn <strong>{code}</strong>. JinMemo sẽ liên hệ để xác nhận.</p>:<form onSubmit={async event=>{
-   event.preventDefault();if(!lines.length||busy)return;
+   event.preventDefault();if(!lines.length||busy||delivery&&!address)return;
    const form=new FormData(event.currentTarget);
-   const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?String(form.get('address')):'',expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
+   const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?address:'',expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
    const key=JSON.stringify(order);
    if(request.current?.key!==key)request.current={key,id:crypto.randomUUID()};
    setBusy(true);setError('');
@@ -54,18 +56,18 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
      {!lines.length?<p>Chọn sản phẩm để bắt đầu đặt hàng.</p>:<>
       <ul className="gift-order-lines">{lines.map(item=><li key={item.id}><span>{item.name} × {counts[item.id]}</span><strong>{giftMoney(item.price*counts[item.id])}</strong></li>)}</ul>
       <fieldset className="gift-fulfillment"><legend>Hình thức nhận hàng</legend>
-       <label><input type="radio" name="fulfillment" checked={!delivery} onChange={()=>setDelivery(false)}/> Nhận tại quầy</label>
+       <label><input type="radio" name="fulfillment" checked={!delivery} onChange={()=>{setDelivery(false);setAddress('');}}/> Nhận tại quầy</label>
        <label><input type="radio" name="fulfillment" checked={delivery} onChange={()=>setDelivery(true)}/> Giao trong Việt Nam</label>
       </fieldset>
       <div className="gift-contact">
        <label>Họ tên <input name="name" required minLength={2} maxLength={120} autoComplete="name"/></label>
        <label>Số điện thoại <input name="phone" type="tel" required maxLength={25} autoComplete="tel"/></label>
-       {delivery&&<label>Địa chỉ nhận tại Việt Nam <textarea name="address" required minLength={8} maxLength={500} autoComplete="street-address"/></label>}
+       {delivery&&<GiftAddress onChange={setAddress}/>}
       </div>
       <dl className="gift-totals"><div><dt>Tiền hàng</dt><dd>{giftMoney(subtotal)}</dd></div><div><dt>Phí giao</dt><dd>{giftMoney(fee)}</dd></div><div><dt>Tổng cộng</dt><dd>{giftMoney(subtotal+fee)}</dd></div></dl>
       <p>Thanh toán khi nhận hàng</p>
       {error&&<p role="alert">{error}</p>}
-      <button className="button" disabled={busy}>{busy?'Đang đặt…':'Đặt hàng'}</button>
+      <button className="button" disabled={busy||delivery&&!address}>{busy?'Đang đặt…':'Đặt hàng'}</button>
      </>}
     </aside>
    </fieldset>

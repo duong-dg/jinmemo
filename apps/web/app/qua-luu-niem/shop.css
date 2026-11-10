@@ -31,6 +31,16 @@
 .gift-contact input, .gift-contact textarea {
   width: 100%; padding: 9px 11px; border: 1px solid #cbd8cf; border-radius: 8px; font: inherit;
 }
+.gift-contact .ride-area-search { position: relative; }
+.gift-contact .ride-area-search > label { margin-bottom: 5px; }
+.gift-contact .ride-area-results {
+  position: absolute; inset: 100% 0 auto; z-index: 5; max-height: 220px; overflow: auto;
+  background: white; border: 1px solid #cbd8cf; border-radius: 8px; padding: 4px;
+}
+.gift-contact .ride-area-results button {
+  display: block; width: 100%; padding: 8px; text-align: left; border: 0; background: white; color: inherit;
+}
+.gift-contact .ride-area-results button[aria-selected=true] { background: #edf3ee; }
 .gift-totals div:last-child { border-top: 1px solid #e0e8e1; font-weight: 700; }
 .gift-checkout .button { width: 100%; justify-content: center; }
 @media (max-width: 760px) {
