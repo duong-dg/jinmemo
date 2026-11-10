@@ -22,6 +22,22 @@ test('customers create and fill shared groups; section saves do not overwrite ea
  assert.equal((await call('/rides',returnInput)).status,400,'return pickup cannot precede departure');
  res=await call('/rides',{...returnInput,returnTime:'18:00'});assert.equal(res.status,201,await res.clone().text());const returnCode=(await res.json()).code;
  const savedReturn=(await pool.query('SELECT data FROM jinmemo_ride_bookings WHERE code=$1',[returnCode])).rows[0].data;assert.equal(savedReturn.roundTrip,true);assert.equal(savedReturn.returnTime,'18:00');assert.equal(savedReturn.total,returnQuote.total);
+
+ const posCall=(path:string,body:unknown,session='')=>fetch(base+'/pos/'+path,{
+  method:'POST',headers:{'Content-Type':'application/json','X-JinMemo-POS':'1',Origin:process.env.PUBLIC_BASE_URL!,Cookie:session},body:JSON.stringify(body)
+ });
+ const counterInput={...returnInput,returnTime:'18:00',requestKey:randomUUID()};
+ assert.equal((await posCall('rides',counterInput)).status,401);
+ const posLogin=await posCall('login',{email:process.env.ADMIN_EMAIL,password:process.env.ADMIN_PASSWORD});
+ assert.equal(posLogin.status,201,await posLogin.clone().text());
+ const posCookie=posLogin.headers.get('set-cookie')!.split(';')[0];
+ const counterBooking=await posCall('rides',counterInput,posCookie);
+ assert.equal(counterBooking.status,201,await counterBooking.clone().text());
+ const {code:counterCode}=await counterBooking.json();
+ assert.equal((await(await posCall('rides',counterInput,posCookie)).json()).code,counterCode);
+ const counterRecord=(await pool.query('SELECT data FROM jinmemo_ride_bookings WHERE code=$1',[counterCode])).rows[0].data;
+ assert.equal(counterRecord.channel,'POS');
+ assert.ok(counterRecord.staffId);
  }finally{await app.close();}
 });
 

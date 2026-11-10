@@ -10,7 +10,7 @@ export class RidePayments{
  async assertAvailable(){if(!await this.available())throw new BadRequestException('Thanh toán QR cho xe chưa bật. Chọn thanh toán sau.');}
  async checkout(code:string,requestKey?:string,actor?:string){
   await this.assertAvailable();const c=await this.settings.config(),client=await this.db.pool.connect();try{await client.query('BEGIN');await client.query("SELECT id FROM jinmemo_migrations WHERE id='037_cart_requests' FOR UPDATE");
-  const row=(await client.query('SELECT * FROM jinmemo_ride_bookings WHERE code=$1 FOR UPDATE',[code])).rows[0];if(!row||!actor&&row.request_key!==requestKey)throw new NotFoundException('Không tìm thấy đơn xe.');
+  const row=(await client.query('SELECT * FROM jinmemo_ride_bookings WHERE code=$1 FOR UPDATE',[code])).rows[0];if(!row||!actor&&(row.request_key!==requestKey||row.data.channel==='POS'))throw new NotFoundException('Không tìm thấy đơn xe.');
   if(row.status==='CANCELLED'||row.data.paymentStatus==='PAID'||row.data.total<=0)throw new ConflictException('Đơn đã hủy hoặc đã thanh toán.');
   if(actor&&['PENDING','WAITING_MATCH'].includes(row.status))throw new ConflictException('Xác nhận xe / chốt nhóm trước khi tạo QR thu tiền.');
   let attempt=(await client.query("SELECT * FROM jinmemo_ride_payment_attempts WHERE ride_id=$1 AND status='PENDING' AND expires_at>$2 AND amount=$3 AND config_version=$4 ORDER BY created_at DESC LIMIT 1",[row.id,new Date(),row.data.total,c.version])).rows[0];
