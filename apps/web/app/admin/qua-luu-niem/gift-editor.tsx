@@ -1,7 +1,9 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {adminApi} from '../shared/admin-api';
 import {ImageField} from '../shared/media-picker';
+import {areaSearchText} from '../../../lib/ride-area-search';
+import './gift-admin.css';
 import {giftMoney,type GiftConfig} from '../../qua-luu-niem/shop';
 
 type Config=GiftConfig&{version:number};
@@ -10,6 +12,11 @@ const labels:Record<string,string>={PENDING:'Chờ xử lý',SHIPPING:'Đang gia
 export function GiftEditor({view='products'}:{view?:'products'|'orders'|'settings'}){
  const [config,setConfig]=useState<Config>(),[orders,setOrders]=useState<GiftOrder[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const dialog=useRef<HTMLDialogElement>(null);
+ const [query,setQuery]=useState(''),[editing,setEditing]=useState(false);
+ const search=areaSearchText(query);
+ const visibleItems=config?.items.filter(row=>areaSearchText(row.name+' '+row.description).includes(search))||[];
+ function openEditor(){setError('');setNotice('');setEditing(true);dialog.current?.showModal();}
  const [draft,setDraft]=useState({id:'',name:'',description:'',price:'',stock:'',imageId:undefined as string|undefined,active:false});
  const [shippingFee,setShippingFee]=useState(''),[enabled,setEnabled]=useState(false);
  const product= draft.id ? config?.items.find(item=>item.id===draft.id) : undefined;
@@ -24,19 +31,37 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
  async function load(){const data=await adminApi('gifts');setConfig(data.config);setOrders(data.data);setShippingFee(String(data.config.shippingFee));setEnabled(data.config.enabled);}
  useEffect(()=>{void run(load);},[]);
  return <section>
-  {error&&<p className="admin-error" role="alert">{error}</p>}
+  {error&&!editing&&<p className="admin-error" role="alert">{error}</p>}
   {notice&&<p className="admin-success" role="status">{notice}</p>}
   {view==='products'&&config&&<>
+   <div className="gift-admin-toolbar">
+    <label>Tìm sản phẩm<input type="search" placeholder="Tên hoặc mô tả sản phẩm…" value={query} onChange={e=>setQuery(e.target.value)}/></label>
+    <button type="button" className="button" disabled={busy||config.items.length>=200} onClick={()=>{reset();openEditor();}}>Thêm sản phẩm</button>
+   </div>
+   <div className="gift-admin-table">
+    <table>
+     <thead><tr><th scope="col">Sản phẩm</th><th scope="col">Giá bán</th><th scope="col">Còn bán</th><th scope="col">Hiển thị</th><th scope="col">Thao tác</th></tr></thead>
+     <tbody>{visibleItems.map(row=><tr key={row.id}>
+      <td><strong>{row.name}</strong></td><td>{giftMoney(row.price)}</td><td>{row.stock}</td><td>{row.active?'Đang hiện':'Đang ẩn'}</td>
+      <td><button className="outline-button" type="button" aria-label={'Sửa '+row.name} disabled={busy} onClick={()=>{
+       setDraft({...row,price:String(row.price),stock:String(row.stock),imageId:row.imageId});
+       openEditor();
+      }}>Sửa</button></td>
+     </tr>)}</tbody>
+    </table>
+    {!visibleItems.length&&<p>{search?'Không tìm thấy sản phẩm phù hợp.':'Chưa có sản phẩm.'}</p>}
+   </div>
+   <dialog ref={dialog} className="gift-admin-dialog" aria-labelledby="gift-editor-title" onCancel={e=>{if(busy)e.preventDefault();}} onClose={()=>{setEditing(false);setError('');reset();}}>
    <form onSubmit={e=>{
     e.preventDefault();if(!valid||!dirty||busy||(!draft.id&&config.items.length>=200))return;
     void run(async()=>{
      const saved={...item,id:draft.id||crypto.randomUUID()};
      const items=draft.id?config.items.map(row=>row.id===saved.id?saved:row):[saved,...config.items];
-     setConfig(await adminApi('gifts',{...config,items}));reset();setNotice('Đã lưu sản phẩm.');
+     setConfig(await adminApi('gifts',{...config,items}));dialog.current?.close();setNotice('Đã lưu sản phẩm.');
     });
    }}>
     <fieldset className="config-card" disabled={busy}>
-     <h2>{draft.id?'Sửa sản phẩm':'Thêm sản phẩm'}</h2>
+     <h2 id="gift-editor-title">{draft.id?'Sửa sản phẩm':'Thêm sản phẩm'}</h2>
      <div className="field-grid">
       <label>Tên sản phẩm<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
       <label>Giá bán (VND)<input type="number" min={1} max={100000000} required value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label>
@@ -45,19 +70,12 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
      </div>
      <ImageField label="Ảnh sản phẩm" value={draft.imageId?{id:draft.imageId,alt:draft.name}:null} onChange={image=>setDraft({...draft,imageId:image?.id})}/>
      <label className="checkbox-label"><input type="checkbox" checked={draft.active} onChange={e=>setDraft({...draft,active:e.target.checked})}/> Hiện sản phẩm</label>
-     <button className="button" disabled={!valid||!dirty||(!draft.id&&config.items.length>=200)}>{draft.id?'Lưu thay đổi':'Thêm sản phẩm'}</button>
-     {draft.id&&<button className="outline-button" type="button" onClick={reset}>Hủy chỉnh sửa</button>}
+     {error&&<p className="admin-error" role="alert">{error}</p>}
+     <div className="gift-admin-actions"><button className="button" disabled={!valid||!dirty||(!draft.id&&config.items.length>=200)}>{draft.id?'Lưu thay đổi':'Thêm sản phẩm'}</button>
+     <button className="outline-button" type="button" onClick={()=>dialog.current?.close()}>Hủy</button></div>
     </fieldset>
    </form>
-   <h2>Sản phẩm đã lưu</h2>
-   {!config.items.length&&<p>Chưa có sản phẩm.</p>}
-   {config.items.map(row=><div className="config-card" key={row.id}>
-    <strong>{row.name}</strong> · {giftMoney(row.price)} · Còn {row.stock} · {row.active?'Đang hiện':'Đang ẩn'}
-    <button className="outline-button" type="button" disabled={busy} onClick={e=>{
-     setDraft({...row,price:String(row.price),stock:String(row.stock),imageId:row.imageId});
-     e.currentTarget.closest('section')?.querySelector('form')?.scrollIntoView({block:'start'});
-    }}>Sửa</button>
-   </div>)}
+   </dialog>
   </>}
   {view==='settings'&&config&&<form onSubmit={e=>{
    e.preventDefault();if(!e.currentTarget.reportValidity()||busy||(!shippingFee.trim()||enabled===config.enabled&&Number(shippingFee)===config.shippingFee))return;
