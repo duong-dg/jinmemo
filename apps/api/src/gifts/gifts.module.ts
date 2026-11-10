@@ -11,6 +11,7 @@ const settings=z.object({version:z.number().int().nonnegative(),enabled:z.boolea
 const order=z.object({
  requestId:z.uuid(), fulfillment:z.enum(['PICKUP','DELIVERY']),expectedTotal:z.number().int().positive(),
  name:z.string().trim().min(2).max(120),phone:z.string().trim().regex(/^\+?[0-9 ()-]{8,25}$/),
+ pickupCounterId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/).optional(),
  address:z.string().trim().max(500).default(''),lines:z.array(z.object({id:z.uuid(),quantity:z.number().int().min(1).max(50)}).strict()).min(1).max(20),
 }).strict();
 const initial={version:0,enabled:false,shippingFee:50000,items:[] as z.infer<typeof item>[]};
@@ -27,9 +28,13 @@ class GiftsService{
   const row=(await client.query("SELECT data,version FROM jinmemo_settings WHERE id='gifts'")).rows[0];
   return row?settings.parse({...row.data,version:row.version}):initial;
  }
+ private async pickupCounters(client:Pick<DatabaseService['pool'],'query'>=this.db.pool){
+  const {rows}=await client.query('SELECT id,data FROM jinmemo_counters ORDER BY id');
+  return rows.filter(row=>row.data.status==='ACTIVE'&&typeof row.data.address==='string'&&row.data.address.trim()).map(row=>({id:row.id,name:row.data.name,address:row.data.address}));
+ }
  async catalog(){
   const config=await this.config();
-  return {enabled:config.enabled,shippingFee:config.shippingFee,items:config.enabled?config.items.filter(x=>x.active):[]};
+  return {enabled:config.enabled,pickupCounters:config.enabled?await this.pickupCounters():[],shippingFee:config.shippingFee,items:config.enabled?config.items.filter(x=>x.active):[]};
  }
  async save(body:unknown){
   const {version,...data}=parse(settings,body);
@@ -76,13 +81,16 @@ class GiftsService{
     if(!product||product.stock<line.quantity)throw new ConflictException('Một món trong giỏ đã hết hàng hoặc không đủ số lượng.');
     return {...line,name:product.name,price:product.price};
    });
+   const counters=input.fulfillment==='PICKUP'?await this.pickupCounters(client):[];
+   const pickup=counters.find(counter=>counter.id===input.pickupCounterId);
+   if(input.fulfillment==='PICKUP'&&(input.pickupCounterId||counters.length)&&!pickup)throw new ConflictException('Chọn lại quầy nhận hàng.');
    const shippingFee=input.fulfillment==='DELIVERY'?config.shippingFee:0;
    const total=lines.reduce((sum,line)=>sum+line.quantity*line.price,shippingFee);
    if(total!==input.expectedTotal)throw new ConflictException('Giá đã thay đổi. Tải lại trang để xem giá mới.');
    const code='JM-G'+randomUUID().replace(/-/g,'').slice(0,12).toUpperCase();
    const items=config.items.map(x=>({...x,stock:x.stock-(lines.find(line=>line.id===x.id)?.quantity??0)}));
    await client.query("UPDATE jinmemo_settings SET data=$1,version=version+1 WHERE id='gifts'",[JSON.stringify({...config,items})]);
-   await client.query('INSERT INTO jinmemo_gift_orders(id,code,data)VALUES($1,$2,$3)',[input.requestId,code,JSON.stringify({...input,address:input.fulfillment==='DELIVERY'?input.address:'',lines,shippingFee,total,fingerprint})]);
+   await client.query('INSERT INTO jinmemo_gift_orders(id,code,data)VALUES($1,$2,$3)',[input.requestId,code,JSON.stringify({...input,address:input.fulfillment==='DELIVERY'?input.address:pickup?.address||'',pickupCounterName:pickup?.name,lines,shippingFee,total,fingerprint})]);
    await client.query('COMMIT');
    return {code,total};
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}

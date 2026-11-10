@@ -41,7 +41,15 @@ test('gift checkout charges shipping once, prevents repeat stock deductions and 
   assert.equal((await call(cancelPath,{status:'CANCELLED'},cookie)).status,201);
   assert.equal((await call(cancelPath,{status:'CANCELLED'},cookie)).status,201);
   assert.equal((await(await call('/gifts')).json()).data.items[0].stock,3);
-  assert.equal((await call('/gifts',{...order,requestId:randomUUID(),fulfillment:'PICKUP',expectedTotal:60000})).status,201);
+  const counterId=randomUUID(),address='12 Trần Phú, Hội An';
+  assert.equal((await call('/admin/counters',{id:counterId,name:'Quầy Hội An',address,status:'ACTIVE',version:0},cookie)).status,201);
+  assert.deepEqual((await(await call('/gifts')).json()).data.pickupCounters,[{id:counterId,name:'Quầy Hội An',address}]);
+  const pickup={...order,requestId:randomUUID(),fulfillment:'PICKUP',expectedTotal:60000};
+  assert.equal((await call('/gifts',pickup)).status,409);
+  assert.equal((await call('/gifts',{...pickup,pickupCounterId:counterId})).status,201);
+  const savedPickup=(await pool.query('SELECT data FROM jinmemo_gift_orders WHERE id=$1',[pickup.requestId])).rows[0].data;
+  assert.equal(savedPickup.address,address);
+  assert.equal(savedPickup.pickupCounterName,'Quầy Hội An');
   let current=(await(await call('/admin/gifts',undefined,cookie)).json()).config;
   assert.equal((await call('/admin/gifts',{...current,items:[]},cookie)).status,409);
   const openOrder=(await(await call('/admin/gifts',undefined,cookie)).json()).data.find((row:{status:string})=>row.status==='PENDING');

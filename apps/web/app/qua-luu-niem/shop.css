@@ -67,3 +67,5 @@
 .gift-cart-link, .gift-receive-heading { scroll-margin-top: 112px; }
 
 .gift-product-copy > strong, .gift-order-lines strong, .gift-totals div:last-child dd { color: #b6471c; }
+
+.gift-pickup-location{padding:12px;border-radius:8px;background:#edf5ef}.gift-pickup-location p{margin:4px 0 0}

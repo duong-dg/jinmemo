@@ -1,5 +1,5 @@
 import{BadRequestException,Body,ConflictException,Controller,Get,Injectable,Module,Post,Query,Req,Res,UseGuards}from'@nestjs/common';import type{Request,Response}from'express';import{z}from'zod';import{randomUUID}from'node:crypto';import{DatabaseService}from'../database/database.module';import{AuthModule,AdminGuard}from'../admin/auth.module';import{OrdersModule}from'../orders/orders.module';import{OrdersService}from'../orders/orders.service';import{orderInput}from'../orders/orders.schema';import{creditSummary,LedgerRow}from'../partners/credit';import{validateDate}from'../pricing/pricing';
-const counterSchema=z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),name:z.string().trim().min(1).max(100),status:z.enum(['ACTIVE','ARCHIVED']),version:z.number().int().min(0)}).strict();
+const counterSchema=z.object({id:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),name:z.string().trim().min(1).max(100),address:z.string().trim().max(500).optional(),status:z.enum(['ACTIVE','ARCHIVED']),version:z.number().int().min(0)}).strict();
 const posSchema=orderInput.extend({counterId:z.string().min(1).max(80)}).strict();
 function parse<T>(schema:z.ZodType<T>,body:unknown){const parsed=schema.safeParse(body);if(!parsed.success)throw new BadRequestException(parsed.error.issues.map(i=>i.message).join('\n'));return parsed.data;}
 @Injectable()export class OperationsService{

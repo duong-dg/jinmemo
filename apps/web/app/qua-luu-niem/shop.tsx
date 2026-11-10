@@ -3,10 +3,11 @@ import {useEffect,useRef,useState} from 'react';
 import './shop.css';
 import {useGiftCart,updateGiftCart} from '../../lib/gift-cart';
 import {CartIcon} from '../components/cart-icon';
+import {PickupCounter,type PickupLocation} from './pickup-counter';
 import {GiftAddress} from './gift-address';
 
 export type GiftItem={id:string;name:string;description:string;imageId?:string;price:number;stock:number;active:boolean};
-export type GiftConfig={enabled:boolean;shippingFee:number;items:GiftItem[]};
+export type GiftConfig={enabled:boolean;shippingFee:number;items:GiftItem[];pickupCounters?:PickupLocation[]};
 export const giftMoney=(n:number)=>n.toLocaleString('vi-VN')+' đ';
 
 export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;initialCheckout?:boolean}){
@@ -26,6 +27,9 @@ export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;ini
   window.addEventListener('jinmemo-checkout-gifts',open);
   return()=>window.removeEventListener('jinmemo-checkout-gifts',open);
  },[]);
+ const [pickup,setPickup]=useState('');
+ const locations=catalog.pickupCounters||[];
+ const pickupCounterId=locations.find(location=>location.id===pickup)?.id||locations[0]?.id;
  const request=useRef<{key:string;id:string}|null>(null);
  const lines=catalog.items.filter(item=>counts[item.id]>0);
  const subtotal=lines.reduce((sum,item)=>sum+item.price*counts[item.id],0),fee=delivery?catalog.shippingFee:0;
@@ -35,7 +39,7 @@ export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;ini
   {code?<p role="status">Đã đặt hàng. Mã đơn <strong>{code}</strong>. JinMemo sẽ liên hệ để xác nhận.</p>:<form onSubmit={async event=>{
    event.preventDefault();if(!checkout||!receiving||!lines.length||busy||delivery&&!address)return;
    const form=new FormData(event.currentTarget);
-   const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?address:'',expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
+   const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?address:'',...(!delivery&&pickupCounterId?{pickupCounterId}:{}),expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
    const key=JSON.stringify(order);
    if(request.current?.key!==key)request.current={key,id:crypto.randomUUID()};
    setBusy(true);setError('');
@@ -104,7 +108,7 @@ export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;ini
       <div className="gift-contact">
        <label>Họ tên <input name="name" required minLength={2} maxLength={120} autoComplete="name"/></label>
        <label>Số điện thoại <input name="phone" type="tel" required maxLength={25} autoComplete="tel"/></label>
-       {delivery&&<GiftAddress onChange={setAddress}/>}
+       {delivery?<GiftAddress onChange={setAddress}/>:<PickupCounter locations={locations} id={pickup} onChange={setPickup}/>}
       </div>
       <dl className="gift-totals"><div><dt>Tiền hàng</dt><dd>{giftMoney(subtotal)}</dd></div><div><dt>Phí giao</dt><dd>{giftMoney(fee)}</dd></div><div><dt>Tổng cộng</dt><dd>{giftMoney(subtotal+fee)}</dd></div></dl>
       <p>Thanh toán khi nhận hàng</p>

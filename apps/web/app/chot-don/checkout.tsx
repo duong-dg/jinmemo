@@ -8,6 +8,7 @@ import {useRideCart,readRideCart,writeRideCart} from '../../lib/ride-cart';
 import {useLocale} from '../components/locale-context';
 import {localizedPath} from '../../lib/i18n';
 import {TransportFields,readTrip} from '../components/transport-fields';
+import {PickupCounter} from '../qua-luu-niem/pickup-counter';
 import {GiftAddress} from '../qua-luu-niem/gift-address';
 import {giftMoney,type GiftConfig} from '../qua-luu-niem/shop';
 
@@ -71,6 +72,9 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
   try{sessionStorage.setItem(journalKey,JSON.stringify(next));}catch{}
   setJournal(next);
  }
+ const [pickup,setPickup]=useState('');
+ const locations=catalog?.pickupCounters||[];
+ const pickupCounterId=locations.find(location=>location.id===pickup)?.id||locations[0]?.id;
  const giftIds=Object.keys(giftCart);
  const gifts=(catalog?.items||[]).filter(item=>giftCart[item.id]).map(item=>({...item,quantity:giftCart[item.id].quantity}));
  const giftReady=!!catalog?.enabled&&gifts.length===giftIds.length&&gifts.every(item=>item.stock>=item.quantity);
@@ -121,7 +125,7 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
     }:undefined,tickets);
     await place('ride',ride?{...ride.selection,contact,requestKey:crypto.randomUUID(),payment:'PAY_LATER',pickup:field('pickup'),dropoff:field('dropoff'),note:field('rideNote')}:undefined,ride);
     if(giftIds.length&&!giftReady&&!unresolved('gifts'))setErrors(old=>({...old,gifts:'Có món chưa đủ hàng hoặc quà đang đóng bán. Kiểm tra lại giỏ quà.'}));
-    else await place('gifts',gifts.length&&giftReady?{requestId:crypto.randomUUID(),name:contact.name,phone:contact.phone,address:delivery?address:'',fulfillment:delivery?'DELIVERY':'PICKUP',expectedTotal:subtotal+shipping,lines:gifts.map(item=>({id:item.id,quantity:item.quantity}))}:undefined,giftCart);
+    else await place('gifts',gifts.length&&giftReady?{requestId:crypto.randomUUID(),name:contact.name,phone:contact.phone,address:delivery?address:'',...(!delivery&&pickupCounterId?{pickupCounterId}:{}),fulfillment:delivery?'DELIVERY':'PICKUP',expectedTotal:subtotal+shipping,lines:gifts.map(item=>({id:item.id,quantity:item.quantity}))}:undefined,giftCart);
    }finally{running.current=false;setBusy(false);}
   }}>
    <fieldset disabled={busy} className="combined-grid">
@@ -148,7 +152,7 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
     {!!giftIds.length&&!unresolved('gifts')&&<section className="order-card gift-contact"><h2><span className="combined-badge gifts">Quà lưu niệm</span></h2>
      <ul>{Object.entries(giftCart).map(([id,line])=><li key={id}>{line.name} × {line.quantity}</li>)}</ul>
      {giftReady?<><label className="combined-fulfillment"><span>Hình thức nhận quà</span><select value={delivery?'delivery':'pickup'} onChange={e=>{setDelivery(e.target.value==='delivery');setAddress('');}}><option value="pickup">Nhận tại quầy</option><option value="delivery">Giao trong Việt Nam</option></select></label>
-      {delivery&&<GiftAddress onChange={setAddress}/>}
+      {delivery?<GiftAddress onChange={setAddress}/>:<PickupCounter locations={locations} id={pickup} onChange={setPickup}/>}
       <p>Phí giao {giftMoney(shipping)} · Tổng {giftMoney(subtotal+shipping)} · Trả khi nhận</p></>:<p>Kiểm tra lại số lượng hoặc trạng thái mở bán của quà.</p>}
     </section>}
     </div>

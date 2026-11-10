@@ -7,7 +7,7 @@ import './gift-admin.css';
 import {giftMoney,type GiftConfig} from '../../qua-luu-niem/shop';
 
 type Config=GiftConfig&{version:number};
-type GiftOrder={id:string;code:string;status:string;data:{name:string;phone:string;address:string;fulfillment:string;total:number;shippingFee:number;lines:{id:string;name:string;quantity:number}[]}};
+type GiftOrder={id:string;code:string;status:string;data:{name:string;phone:string;address:string;pickupCounterName?:string;fulfillment:string;total:number;shippingFee:number;lines:{id:string;name:string;quantity:number}[]}};
 const labels:Record<string,string>={PENDING:'Chờ xử lý',SHIPPING:'Đang giao',COMPLETED:'Đã giao / nhận',CANCELLED:'Đã hủy'};
 export function GiftEditor({view='products'}:{view?:'products'|'orders'|'settings'}){
  const [config,setConfig]=useState<Config>(),[orders,setOrders]=useState<GiftOrder[]>([]);
@@ -104,7 +104,7 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
   {orders.map(order=><details key={order.id} className="config-card">
    <summary>{order.code} · {order.data.name} · {giftMoney(order.data.total)} · {labels[order.status]}</summary>
    <p>{order.data.phone} · {order.data.fulfillment==='DELIVERY'?'Giao hàng trong Việt Nam':'Nhận tại quầy'}</p>
-   {order.data.address&&<p>{order.data.address}</p>}
+   {order.data.address&&<p>{order.data.pickupCounterName&&order.data.pickupCounterName+' · '}{order.data.address}</p>}
    <ul>{order.data.lines.map(line=><li key={line.id}>{line.name} × {line.quantity}</li>)}</ul>
    <p>Phí giao {giftMoney(order.data.shippingFee)}</p>
    {!['COMPLETED','CANCELLED'].includes(order.status)&&<div className="transport-toolbar">
