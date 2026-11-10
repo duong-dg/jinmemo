@@ -1,4 +1,12 @@
 .gift-shop { max-width: 1200px; margin-inline: auto; }
+.gift-shop h1 { scroll-margin-top: 100px; }
+.gift-view-actions { margin-block: 12px; }
+.gift-browse { border: 0; padding: 0; margin: 24px 0 0; min-width: 0; }
+.gift-browse .gift-products { grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.gift-browse .gift-product { display: flex; flex-direction: column; }
+.gift-browse .gift-product-copy { flex: 1; display: flex; flex-direction: column; align-items: flex-start; }
+.gift-browse .gift-product-copy > small { margin-bottom: 12px; }
+.gift-select { margin-top: auto; }
 .gift-layout {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(310px, 1fr);
   gap: 24px; align-items: start; min-width: 0; border: 0; padding: 0; margin: 24px 0 0;

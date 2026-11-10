@@ -10,14 +10,19 @@ export const giftMoney=(n:number)=>n.toLocaleString('vi-VN')+' đ';
 export function GiftShop({catalog}:{catalog:GiftConfig}){
  const [counts,setCounts]=useState<Record<string,number>>({}),[delivery,setDelivery]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[code,setCode]=useState('');
- const [address,setAddress]=useState('');
+ const [address,setAddress]=useState(''),[checkout,setCheckout]=useState(false);
+ const heading=useRef<HTMLHeadingElement>(null);
+ function showCheckout(open:boolean){setCheckout(open);heading.current?.scrollIntoView({block:'start'});}
  const request=useRef<{key:string;id:string}|null>(null);
  const lines=catalog.items.filter(item=>counts[item.id]>0);
  const subtotal=lines.reduce((sum,item)=>sum+item.price*counts[item.id],0),fee=delivery?catalog.shippingFee:0;
  return <main className="section gift-shop" id="main">
-  <h1>Quà lưu niệm</h1><p>Quà handmade · Nhận tại quầy hoặc giao trong Việt Nam</p>
+  <h1 ref={heading}>Quà lưu niệm</h1><p>Quà handmade · Nhận tại quầy hoặc giao trong Việt Nam</p>
+  {!code&&<div className="gift-view-actions">
+   {checkout?<button type="button" className="outline-button" disabled={busy} onClick={()=>showCheckout(false)}>← Xem sản phẩm</button>:!!lines.length&&<button type="button" className="button" onClick={()=>showCheckout(true)}>Xem giỏ ({lines.reduce((sum,item)=>sum+counts[item.id],0)})</button>}
+  </div>}
   {code?<p role="status">Đã đặt hàng. Mã đơn <strong>{code}</strong>. JinMemo sẽ liên hệ để xác nhận.</p>:<form onSubmit={async event=>{
-   event.preventDefault();if(!lines.length||busy||delivery&&!address)return;
+   event.preventDefault();if(!checkout||!lines.length||busy||delivery&&!address)return;
    const form=new FormData(event.currentTarget);
    const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?address:'',expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
    const key=JSON.stringify(order);
@@ -30,7 +35,7 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
     setCode(result.code);
    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }}>
-   <fieldset disabled={busy} className="gift-layout">
+   <fieldset disabled={busy} className={checkout?'gift-layout':'gift-browse'}>
     <section className="gift-products" aria-label="Sản phẩm">
      {catalog.items.map(item=>{
       const quantity=counts[item.id]||0;
@@ -41,17 +46,20 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
         <h2>{item.name}</h2>{item.description&&<p>{item.description}</p>}
         <strong>{giftMoney(item.price)}</strong>
         <small>{item.stock?'Còn '+item.stock+' sản phẩm':'Hết hàng'}</small>
-        <div className="package-stepper gift-stepper">
+        {checkout?<div className="package-stepper gift-stepper">
          <button type="button" aria-label={'Giảm '+item.name} disabled={!quantity} onClick={()=>adjust(-1)}>−</button>
          <output aria-label={'Số lượng '+item.name}>{quantity}</output>
          <button type="button" aria-label={'Thêm '+item.name} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>adjust(1)}>+</button>
-        </div>
+        </div>:<button type="button" className="button gift-select" disabled={!item.stock||(!quantity&&lines.length>=20)} onClick={()=>{
+         if(!quantity)adjust(1);
+         showCheckout(true);
+        }}>{quantity?'Đã chọn · Xem giỏ':item.stock?'Chọn sản phẩm':'Hết hàng'}</button>}
        </div>
       </article>;
      })}
      {!catalog.items.length&&<p>Quà lưu niệm đang được cập nhật.</p>}
     </section>
-    <aside className="gift-checkout" aria-label="Đơn hàng của bạn">
+    {checkout&&<aside className="gift-checkout" aria-label="Đơn hàng của bạn">
      <h2>Đơn hàng của bạn</h2>
      {!lines.length?<p>Chọn sản phẩm để bắt đầu đặt hàng.</p>:<>
       <ul className="gift-order-lines">{lines.map(item=><li key={item.id}><span>{item.name} × {counts[item.id]}</span><strong>{giftMoney(item.price*counts[item.id])}</strong></li>)}</ul>
@@ -69,7 +77,7 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
       {error&&<p role="alert">{error}</p>}
       <button className="button" disabled={busy||delivery&&!address}>{busy?'Đang đặt…':'Đặt hàng'}</button>
      </>}
-    </aside>
+    </aside>}
    </fieldset>
   </form>}
  </main>;
