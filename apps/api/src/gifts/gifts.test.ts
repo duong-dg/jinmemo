@@ -42,5 +42,11 @@ test('gift checkout charges shipping once, prevents repeat stock deductions and 
   assert.equal((await call(cancelPath,{status:'CANCELLED'},cookie)).status,201);
   assert.equal((await(await call('/gifts')).json()).data.items[0].stock,3);
   assert.equal((await call('/gifts',{...order,requestId:randomUUID(),fulfillment:'PICKUP',expectedTotal:60000})).status,201);
+  let current=(await(await call('/admin/gifts',undefined,cookie)).json()).config;
+  assert.equal((await call('/admin/gifts',{...current,items:[]},cookie)).status,409);
+  const openOrder=(await(await call('/admin/gifts',undefined,cookie)).json()).data.find((row:{status:string})=>row.status==='PENDING');
+  assert.equal((await call('/admin/gifts/orders/'+openOrder.id,{status:'COMPLETED'},cookie)).status,201);
+  current=(await(await call('/admin/gifts',undefined,cookie)).json()).config;
+  assert.equal((await call('/admin/gifts',{...current,items:[]},cookie)).status,201);
  }finally{await app.close();}
 });

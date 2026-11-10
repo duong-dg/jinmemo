@@ -50,10 +50,12 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
          <button type="button" aria-label={'Giảm '+item.name} disabled={!quantity} onClick={()=>adjust(-1)}>−</button>
          <output aria-label={'Số lượng '+item.name}>{quantity}</output>
          <button type="button" aria-label={'Thêm '+item.name} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>adjust(1)}>+</button>
-        </div>:<button type="button" className="button gift-select" disabled={!item.stock||(!quantity&&lines.length>=20)} onClick={()=>{
+        </div>:<div className="gift-select"><button type="button" className="button" disabled={!item.stock||(!quantity&&lines.length>=20)} onClick={()=>{
          if(!quantity)adjust(1);
          showCheckout(true);
-        }}>{quantity?'Đã chọn · Xem giỏ':item.stock?'Chọn sản phẩm':'Hết hàng'}</button>}
+        }}>{item.stock?'Chọn':'Hết hàng'}</button>
+         <button type="button" className="outline-button" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>adjust(1)}>+ Giỏ{quantity>0?' ('+quantity+')':''}</button>
+        </div>}
        </div>
       </article>;
      })}

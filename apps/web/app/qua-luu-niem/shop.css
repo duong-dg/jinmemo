@@ -6,7 +6,8 @@
 .gift-browse .gift-product { display: flex; flex-direction: column; }
 .gift-browse .gift-product-copy { flex: 1; display: flex; flex-direction: column; align-items: flex-start; }
 .gift-browse .gift-product-copy > small { margin-bottom: 12px; }
-.gift-select { margin-top: auto; }
+.gift-select { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.gift-select > button { min-height: 34px; padding: 6px 11px; font-size: .85rem; }
 .gift-layout {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(310px, 1fr);
   gap: 24px; align-items: start; min-width: 0; border: 0; padding: 0; margin: 24px 0 0;

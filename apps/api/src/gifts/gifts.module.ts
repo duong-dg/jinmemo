@@ -40,7 +40,14 @@ class GiftsService{
    await client.query("SELECT id FROM jinmemo_migrations WHERE id='gift_shop_lock' FOR UPDATE");
    const previous=await this.config(client);
    if(previous.version!==version)throw new ConflictException('Kho vừa thay đổi. Tải lại trước khi lưu.');
-   if(previous.items.some(old=>!data.items.some(current=>current.id===old.id)))throw new BadRequestException('Tắt hiển thị sản phẩm cũ để giữ lịch sử tồn kho.');
+   const remaining=new Set(data.items.map(item=>item.id));
+   const removed=new Set(previous.items.filter(item=>!remaining.has(item.id)).map(item=>item.id));
+   if(removed.size){
+    const openOrders=(await client.query("SELECT data FROM jinmemo_gift_orders WHERE status IN ('PENDING','SHIPPING')")).rows;
+    if(openOrders.some(row=>row.data.lines.some((line:{id:string})=>removed.has(line.id)))){
+     throw new ConflictException('Sản phẩm còn trong đơn đang xử lý. Hãy ẩn sản phẩm hoặc xử lý xong đơn trước khi xóa.');
+    }
+   }
    if(!version)await client.query("INSERT INTO jinmemo_settings(id,data)VALUES('gifts',$1)",[JSON.stringify(data)]);
    else await client.query("UPDATE jinmemo_settings SET data=$1,version=version+1 WHERE id='gifts'",[JSON.stringify(data)]);
    await client.query('COMMIT');

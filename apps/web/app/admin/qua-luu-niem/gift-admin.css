@@ -16,3 +16,5 @@
 .gift-admin-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .gift-admin-dialog-heading h2{margin:0}
 .gift-admin-dialog-heading button{font-size:1.25rem;line-height:1}
+
+.gift-admin-table .gift-delete{margin-inline-start:8px;color:#a13b32}

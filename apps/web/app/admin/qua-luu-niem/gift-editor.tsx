@@ -46,7 +46,14 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
       <td><button className="outline-button" type="button" aria-label={'Sửa '+row.name} disabled={busy} onClick={()=>{
        setDraft({...row,price:String(row.price),stock:String(row.stock),imageId:row.imageId});
        openEditor();
-      }}>Sửa</button></td>
+      }}>Sửa</button>
+      <button className="outline-button gift-delete" type="button" aria-label={'Xóa '+row.name} disabled={busy} onClick={()=>{
+       if(!window.confirm('Xóa sản phẩm “'+row.name+'”?'))return;
+       void run(async()=>{
+        setConfig(await adminApi('gifts',{...config,items:config.items.filter(item=>item.id!==row.id)}));
+        setNotice('Đã xóa sản phẩm.');
+       });
+      }}>Xóa</button></td>
      </tr>)}</tbody>
     </table>
     {!visibleItems.length&&<p>{search?'Không tìm thấy sản phẩm phù hợp.':'Chưa có sản phẩm.'}</p>}
