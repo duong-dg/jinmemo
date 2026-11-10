@@ -68,6 +68,18 @@ test('customers create and fill shared groups; section saves do not overwrite ea
  assert.equal(dispatch.dispatchCounts.driver,1);
  assert.equal(dispatch.dispatchCounts.return,1);
  assert.equal((await call('/admin/rides?dispatch=invalid',undefined,cookie)).status,400);
+
+ const costPath='/admin/rides/'+counterRow.id+'/agency-cost';
+ const costVersion=(await pool.query('SELECT version FROM jinmemo_ride_bookings WHERE id=$1',[counterRow.id])).rows[0].version;
+ assert.equal((await call(costPath,{version:costVersion,agencyCost:0},posCookie)).status,401);
+ const costSave=await call(costPath,{version:costVersion,agencyCost:0},cookie);
+ assert.equal(costSave.status,201,await costSave.clone().text());
+ const savedCost=await costSave.json();assert.equal(savedCost.agencyCost,0);
+ assert.equal((await call(costPath,{version:costVersion,agencyCost:null},cookie)).status,409);
+ const costClear=await call(costPath,{version:savedCost.version,agencyCost:null},cookie);
+ assert.equal(costClear.status,201,await costClear.clone().text());
+ const costRecord=(await pool.query('SELECT data FROM jinmemo_ride_bookings WHERE id=$1',[counterRow.id])).rows[0].data;
+ assert.equal(costRecord.agencyCost,null);assert.equal(costRecord.paymentStatus,'PAID');
  }finally{await app.close();}
 });
 
