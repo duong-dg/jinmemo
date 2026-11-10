@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import './shop.css';
+import {CartIcon} from '../components/cart-icon';
 import {GiftAddress} from './gift-address';
 
 export type GiftItem={id:string;name:string;description:string;imageId?:string;price:number;stock:number;active:boolean};
@@ -59,9 +60,8 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
          if(!quantity)adjust(1);
          showCheckout(true);
         }}>{item.stock?'Chọn':'Hết hàng'}</button>
-         <button type="button" className="gift-add-to-cart" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>{adjust(1);cart.current?.scrollIntoView({block:'start'});}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 3h3l3 12h11l3-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
-          Thêm vào giỏ
+         <button type="button" className="gift-add-to-cart" title="Thêm vào giỏ" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>{adjust(1);cart.current?.scrollIntoView({block:'start'});}}>
+          <CartIcon/>
          </button>
         </div>}
        </div>

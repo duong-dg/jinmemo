@@ -1,0 +1,1 @@
+export function CartIcon(){return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 3h3l3 12h11l3-8H6M9 20h.01M18 20h.01" strokeLinecap="round" strokeLinejoin="round"/></svg>;}
