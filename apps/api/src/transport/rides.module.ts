@@ -1,3 +1,4 @@
+import type {PosActor} from '../pos/pos.schema';
 import {rideLinks} from './ride-links';
 import {PaymentsModule} from '../payments/payments.module';
 import {RidePayments} from '../payments/ride-payments';
@@ -49,7 +50,44 @@ export function assertPlanBookings(plan:TransportPlan,rows:any[]){const p=operat
  async catalog(){const p=await this.plan(),endpoints=new Set(p.fares.filter(f=>f.privatePrice>0).flatMap(f=>[f.from,f.to]));const hasPrice=(id:string)=>{const seen=new Set<string>();while(id&&!seen.has(id)){if(endpoints.has(id))return true;seen.add(id);id=p.areas.find(a=>a.id===id)?.parentId||'';}return false;};return{data:{enabled:p.enabled,sharedScopes:p.enabled?p.fares.map(f=>({from:f.from,to:f.to,vehicleId:f.vehicleId,twoWay:!!f.twoWay,shared:!!f.sharedEnabled&&!f.roundTripOnly&&f.privatePrice>0&&!!p.vehicles.find(v=>v.id===f.vehicleId)?.sharedSizes.length})):[],qrEnabled:this.payments?await this.payments.available():false,areas:p.enabled?p.areas.filter(a=>hasPrice(a.id)).map(({id,name,englishName,aliases,parentId})=>({id,name,englishName,aliases,parentId})):[]}};}
 
  async payment(body:unknown){const p=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/),requestKey:z.uuid()}).strict(),body);return this.payments!.checkout(p.code,p.requestKey);}
- async posPaymentStatus(code:string){const row=(await this.db.pool.query('SELECT data FROM jinmemo_ride_bookings WHERE code=$1',[code])).rows[0];if(!row)throw new NotFoundException();return{paymentStatus:row.data.paymentStatus||'UNPAID'};}
+ async posPaymentStatus(code:string,actor:PosActor){
+  const row=(await this.db.pool.query('SELECT status,data FROM jinmemo_ride_bookings WHERE code=$1',[code])).rows[0];
+  if(!row)throw new NotFoundException('Không tìm thấy đơn xe.');
+  const receipt=row.data.cashReceipt;
+  const canPrint=receipt&&(actor.role==='ADMIN'||actor.counterIds.includes(receipt.counterId));
+  return {...(canPrint?{cashReceipt:receipt}:{}),paymentStatus:row.data.paymentStatus||'UNPAID',status:row.status,total:Number(row.data.total),from:row.data.fromName,to:row.data.toName};
+ }
+ async collectCash(body:unknown,actor:PosActor){
+  const input=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/),counterId:z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/),expectedTotal:z.number().int().positive().max(15000000000)}).strict(),body);
+  if(actor.role!=='ADMIN'&&!actor.counterIds.includes(input.counterId))throw new NotFoundException('Không tìm thấy quầy được cấp quyền.');
+  const client=await this.db.pool.connect();
+  try{
+   await client.query('BEGIN');
+   await client.query("SELECT id FROM jinmemo_migrations WHERE id='037_cart_requests' FOR UPDATE");
+   const counter=(await client.query('SELECT data FROM jinmemo_counters WHERE id=$1 FOR UPDATE',[input.counterId])).rows[0]?.data;
+   if(!counter||counter.status!=='ACTIVE')throw new NotFoundException('Quầy không hoạt động.');
+   const ride=(await client.query('SELECT id,code,status,data,visit_date FROM jinmemo_ride_bookings WHERE code=$1 FOR UPDATE',[input.code])).rows[0];
+   if(!ride)throw new NotFoundException('Không tìm thấy đơn xe.');
+   if(ride.status==='CANCELLED')throw new ConflictException('Đơn xe đã hủy.');
+   const prior=ride.data.cashReceipt;
+   if(prior&&prior.counterId===input.counterId&&prior.amount===input.expectedTotal){await client.query('COMMIT');return prior;}
+   if(ride.data.paymentStatus==='PAID')throw new ConflictException('Đơn xe đã thanh toán.');
+   if(['PENDING','WAITING_MATCH'].includes(ride.status))throw new ConflictException('Xác nhận chuyến hoặc chốt nhóm trước khi thu tiền.');
+   if(Number(ride.data.total)!==input.expectedTotal)throw new ConflictException('Giá đã thay đổi. Tra cứu lại đơn xe.');
+   const activeQr=(await client.query("SELECT id FROM jinmemo_ride_payment_attempts WHERE ride_id=$1 AND status='PENDING' AND expires_at>$2 LIMIT 1",[ride.id,new Date()])).rows[0];
+   if(activeQr)throw new ConflictException('Đơn đang có QR còn hiệu lực. Kiểm tra thanh toán hoặc chờ QR hết hạn trước khi thu tiền mặt.');
+   const shiftId=(await client.query('SELECT shift_id FROM jinmemo_pos_open_shifts WHERE counter_id=$1',[input.counterId])).rows[0]?.shift_id;
+   if(!shiftId)throw new ConflictException('Mở ca quầy trước khi thu tiền mặt.');
+   const id=randomUUID(),paidAt=new Date().toISOString(),actorId=actor.role==='STAFF'?'pos-user:'+actor.id:actor.id;
+   const receipt={id,code:ride.code,amount:input.expectedTotal,paidAt,counterId:input.counterId,counterName:counter.name,shiftId,actorName:actor.name,from:ride.data.fromName,to:ride.data.toName,date:ride.visit_date,time:ride.data.time};
+   await client.query('INSERT INTO jinmemo_pos_cash_movements(id,shift_id,kind,amount,reference,note,actor_id,actor_name,request_hash)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,shiftId,'IN',receipt.amount,ride.code,'Thu tiền mặt đơn xe',actorId,actor.name,createHash('sha256').update(JSON.stringify(receipt)).digest('hex')]);
+   await client.query('UPDATE jinmemo_pos_shifts SET version=version+1 WHERE id=$1',[shiftId]);
+   await client.query('UPDATE jinmemo_ride_bookings SET data=$1,version=version+1 WHERE id=$2',[JSON.stringify({...ride.data,paymentStatus:'PAID',paidAmount:receipt.amount,paidAt,paymentReference:id,cashReceipt:receipt}),ride.id]);
+   await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)',[randomUUID(),actorId,'ride.cash.collect',ride.id]);
+   await client.query('COMMIT');
+   return receipt;
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
  async posPayment(code:string,actor:string){return this.payments!.checkout(code,undefined,'pos:'+actor);}
  async adminPayment(id:string,actor:string){const row=(await this.db.pool.query('SELECT code FROM jinmemo_ride_bookings WHERE id=$1',[id])).rows[0];if(!row)throw new NotFoundException();return this.payments!.checkout(row.code,undefined,actor);}
  async links(lang='',admin=false){return{data:rideLinks(await this.plan(),lang==='en',admin)};}
@@ -88,5 +126,10 @@ export function assertPlanBookings(plan:TransportPlan,rows:any[]){const p=operat
  if(input.payment!=='PAY_LATER')throw new BadRequestException('Tạo đơn trước, sau đó dùng Thu tiền xe khi chuyến đã xác nhận.');
  return this.service.create(input,actor.id);
 }
-@Post('status')async status(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);const actor=await this.auth.require(req);this.auth.permit(actor,'COLLECT');const p=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/)}).strict(),body);res.setHeader('Cache-Control','private, no-store');return this.service.posPaymentStatus(p.code);}@Post('payment')async payment(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);const actor=await this.auth.require(req);this.auth.permit(actor,'COLLECT');const p=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/)}).strict(),body);res.setHeader('Cache-Control','private, no-store');return this.service.posPayment(p.code,actor.id);}}
+@Post('cash')async cash(@Body()body:unknown,@Req()req:Request){
+ this.auth.checkMutation(req);
+ const actor=await this.auth.require(req);this.auth.permit(actor,'COLLECT');
+ return this.service.collectCash(body,actor);
+}
+@Post('status')async status(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);const actor=await this.auth.require(req);this.auth.permit(actor,'COLLECT');const p=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/)}).strict(),body);res.setHeader('Cache-Control','private, no-store');return this.service.posPaymentStatus(p.code,actor);}@Post('payment')async payment(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);const actor=await this.auth.require(req);this.auth.permit(actor,'COLLECT');const p=parse(z.object({code:z.string().regex(/^JM-X[A-F0-9]{12}$/)}).strict(),body);res.setHeader('Cache-Control','private, no-store');return this.service.posPayment(p.code,actor.id);}}
 @Module({imports:[AuthModule,PaymentsModule,PosModule],providers:[RidesService],controllers:[PublicRidesController,AdminRidesController,PosRidePaymentsController]})export class RidesModule{}

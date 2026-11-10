@@ -38,6 +38,26 @@ test('customers create and fill shared groups; section saves do not overwrite ea
  const counterRecord=(await pool.query('SELECT data FROM jinmemo_ride_bookings WHERE code=$1',[counterCode])).rows[0].data;
  assert.equal(counterRecord.channel,'POS');
  assert.ok(counterRecord.staffId);
+
+ const counterId=randomUUID(),shiftId=randomUUID();
+ assert.equal((await call('/admin/counters',{id:counterId,name:'Quầy xe test',status:'ACTIVE',version:0},cookie)).status,201);
+ const cashInput={code:counterCode,counterId,expectedTotal:returnQuote.total};
+ assert.equal((await posCall('rides/cash',cashInput)).status,401);
+ assert.equal((await posCall('rides/cash',cashInput,posCookie)).status,409,'pending trip cannot be collected');
+ const opened=await posCall('shifts',{requestId:shiftId,counterId,openingCash:100000},posCookie);
+ assert.equal(opened.status,201,await opened.clone().text());
+ const counterRow=(await pool.query('SELECT id,version FROM jinmemo_ride_bookings WHERE code=$1',[counterCode])).rows[0];
+ const confirmed=await call('/admin/rides/'+counterRow.id,{...patch,version:counterRow.version,tripId:null,status:'WAITING_PICKUP',driver:'Tài xế test',driverPhone:'0901234567',plate:'43A12345'},cookie);
+ assert.equal(confirmed.status,201,await confirmed.clone().text());
+ const cash=await posCall('rides/cash',cashInput,posCookie);
+ assert.equal(cash.status,201,await cash.clone().text());
+ const receipt=await cash.json();
+ assert.equal(receipt.amount,returnQuote.total);
+ assert.equal((await(await posCall('rides/cash',cashInput,posCookie)).json()).id,receipt.id);
+ assert.equal((await pool.query('SELECT id FROM jinmemo_pos_cash_movements WHERE shift_id=$1',[shiftId])).rowCount,1);
+ const paid=(await(await posCall('rides/status',{code:counterCode},posCookie)).json());
+ assert.equal(paid.paymentStatus,'PAID');
+ assert.equal(paid.cashReceipt.id,receipt.id);
  }finally{await app.close();}
 });
 
