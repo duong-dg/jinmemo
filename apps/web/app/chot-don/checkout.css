@@ -9,3 +9,15 @@
 .combined-summary .combined-consent {display:flex;align-items:flex-start;gap:8px;font-size:.9rem;margin-top:12px}
 .combined-summary .combined-consent input {width:auto;margin-top:4px}
 @media(max-width:760px){.combined-checkout .combined-grid{grid-template-columns:1fr;gap:16px}.combined-summary{position:static}}
+
+.combined-checkout .checkout-contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.combined-wide{grid-column:1/-1}
+.combined-checkout .gift-contact .combined-fulfillment{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);align-items:center;gap:12px}
+.combined-checkout .gift-contact .ride-area-search{padding:0;border:0;width:100%}
+.combined-checkout .gift-contact :is(input:not([type=checkbox]),select,textarea){box-sizing:border-box;width:100%;min-height:44px;padding:9px 11px;border:1px solid #cbd8cf;border-radius:8px;background:white}
+.combined-badge,.combined-line{display:inline-block;border-radius:8px;padding:5px 10px}
+.combined-summary .combined-line{display:block}
+.combined-checkout .tickets{background:#e7f2ff;color:#215481}
+.combined-checkout .ride{background:#e4f5eb;color:#246144}
+.combined-checkout .gifts{background:#fff0e5;color:#91471e}
+@media(max-width:460px){.combined-checkout .checkout-contact-grid{grid-template-columns:1fr}}

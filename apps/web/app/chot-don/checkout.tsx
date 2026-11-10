@@ -7,7 +7,6 @@ import {useGiftCart,updateGiftCart} from '../../lib/gift-cart';
 import {useRideCart,readRideCart,writeRideCart} from '../../lib/ride-cart';
 import {useLocale} from '../components/locale-context';
 import {localizedPath} from '../../lib/i18n';
-import {cartApi} from '../components/cart-receipt';
 import {TransportFields,readTrip} from '../components/transport-fields';
 import {GiftAddress} from '../qua-luu-niem/gift-address';
 import {giftMoney,type GiftConfig} from '../qua-luu-niem/shop';
@@ -128,51 +127,37 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
    <fieldset disabled={busy} className="combined-grid">
     <div className="combined-details">
     {(tickets.length&&!unresolved('tickets')||ride&&!unresolved('ride')||giftIds.length&&giftReady&&!unresolved('gifts'))&&<section className="order-card"><h2>Thông tin liên hệ</h2><div className="checkout-contact-grid">
-     <label>Họ tên<input name="name" required minLength={2} maxLength={100} autoComplete="name"/></label>
+     <label className="combined-wide">Họ tên<input name="name" required minLength={2} maxLength={100} autoComplete="name"/></label>
      <label>Số điện thoại<input name="phone" type="tel" required minLength={8} maxLength={25} autoComplete="tel"/></label>
      {(!!tickets.length||!!ride)&&<label>Email<input name="email" type="email" required maxLength={200} autoComplete="email"/></label>}
     </div></section>}
-    {!!tickets.length&&!unresolved('tickets')&&<section className="order-card"><h2>Vé</h2>
+    {!!tickets.length&&!unresolved('tickets')&&<section className="order-card"><h2><span className="combined-badge tickets">Vé</span></h2>
      <ul>{tickets.map(line=><li key={line.id}>{line.productName} · {line.variantName} · {line.date}{line.slotLabel?' · '+line.slotLabel:''} · {giftMoney(line.expectedTotal)}</li>)}</ul>
      <TransportFields items={tickets}/>
-     <button type="button" className="outline-button" onClick={async()=>{
-      if(running.current)return;
-      running.current=true;setBusy(true);setErrors(old=>({...old,tickets:undefined}));
-      try{
-       const updated=await Promise.all(tickets.map(async line=>{
-        const quote=await cartApi('quotes?lang='+locale,{productId:line.productId,variantId:line.variantId,date:line.date,slotId:line.slotId,quantities:line.quantities,voucherCode:line.voucherCode});
-        if(quote.demo)throw new Error('Vé minh họa chưa mở bán.');
-        return {...line,expectedTotal:quote.total};
-       }));
-       if(JSON.stringify(readCart('WEB'))!==JSON.stringify(tickets))throw new Error('Giỏ vé vừa thay đổi. Bấm kiểm tra lại.');
-       writeCart('WEB',updated);
-      }catch(error){setErrors(old=>({...old,tickets:(error as Error).message}));}
-      finally{running.current=false;setBusy(false);}
-     }}>Kiểm tra giá vé</button> <Link href={localizedPath('/gio-hang',locale)}>Sửa giỏ vé</Link>
+
     </section>}
-    {ride&&!unresolved('ride')&&<section className="order-card"><h2>Xe</h2>
+    {ride&&!unresolved('ride')&&<section className="order-card"><h2><span className="combined-badge ride">Xe</span></h2>
      <p>{ride.fromName} → {ride.toName} · {ride.selection.date} {ride.selection.time} · {ride.vehicleName} · {ride.selection.passengers} khách</p>
      <p>{giftMoney(ride.selection.expectedTotal)} · Đặt trước, thanh toán sau</p>
      <div className="checkout-contact-grid">
       <label>Địa chỉ đón<input name="pickup" required minLength={3} maxLength={300}/></label>
       <label>Địa chỉ trả<input name="dropoff" required minLength={3} maxLength={300}/></label>
-      <label>Ghi chú cho chuyến xe<textarea name="rideNote" maxLength={1000}/></label>
+      <label className="combined-wide">Ghi chú cho chuyến xe<textarea name="rideNote" maxLength={1000}/></label>
      </div>
     </section>}
-    {!!giftIds.length&&!unresolved('gifts')&&<section className="order-card gift-contact"><h2>Quà lưu niệm</h2>
+    {!!giftIds.length&&!unresolved('gifts')&&<section className="order-card gift-contact"><h2><span className="combined-badge gifts">Quà lưu niệm</span></h2>
      <ul>{Object.entries(giftCart).map(([id,line])=><li key={id}>{line.name} × {line.quantity}</li>)}</ul>
-     {giftReady?<><label>Hình thức nhận<select value={delivery?'delivery':'pickup'} onChange={e=>{setDelivery(e.target.value==='delivery');setAddress('');}}><option value="pickup">Nhận tại quầy</option><option value="delivery">Giao trong Việt Nam</option></select></label>
+     {giftReady?<><label className="combined-fulfillment"><span>Hình thức nhận quà</span><select value={delivery?'delivery':'pickup'} onChange={e=>{setDelivery(e.target.value==='delivery');setAddress('');}}><option value="pickup">Nhận tại quầy</option><option value="delivery">Giao trong Việt Nam</option></select></label>
       {delivery&&<GiftAddress onChange={setAddress}/>}
       <p>Phí giao {giftMoney(shipping)} · Tổng {giftMoney(subtotal+shipping)} · Trả khi nhận</p></>:<p>Kiểm tra lại số lượng hoặc trạng thái mở bán của quà.</p>}
-     <Link href="/qua-luu-niem?gio=1">Xem giỏ quà</Link>
     </section>}
     </div>
     <aside className="order-card combined-summary" aria-label="Tổng đơn">
      <h2>Tóm tắt đơn hàng</h2>
-     {!!tickets.length&&<p>Vé · {giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0))}</p>}
+     {!!tickets.length&&<p className="combined-line tickets">Vé · {giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0))}</p>}
      {!!giftIds.length&&giftReady&&delivery&&<p>Phí giao · {giftMoney(shipping)}</p>}
-     {ride&&<p>Xe thu sau · {giftMoney(ride.selection.expectedTotal)}</p>}
-     {!!giftIds.length&&giftReady&&<p>Quà trả khi nhận · {giftMoney(subtotal+shipping)}</p>}
+     {ride&&<p className="combined-line ride">Xe thu sau · {giftMoney(ride.selection.expectedTotal)}</p>}
+     {!!giftIds.length&&giftReady&&<p className="combined-line gifts">Quà trả khi nhận · {giftMoney(subtotal+shipping)}</p>}
 
      <div className="cart-totals"><span>Tổng đơn</span><strong>{giftIds.length&&!giftReady?'Cần kiểm tra giỏ quà':giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0)+(ride?.selection.expectedTotal||0)+subtotal+shipping)}</strong></div>
     <label className="combined-consent"><input type="checkbox" required/> Tôi đồng ý tạo đơn và thanh toán riêng cho từng nhóm.</label>
