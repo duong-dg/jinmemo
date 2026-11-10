@@ -1,5 +1,5 @@
 'use client';
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import './shop.css';
 import {GiftAddress} from './gift-address';
 
@@ -10,19 +10,24 @@ export const giftMoney=(n:number)=>n.toLocaleString('vi-VN')+' đ';
 export function GiftShop({catalog}:{catalog:GiftConfig}){
  const [counts,setCounts]=useState<Record<string,number>>({}),[delivery,setDelivery]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[code,setCode]=useState('');
- const [address,setAddress]=useState(''),[checkout,setCheckout]=useState(false);
+ const [address,setAddress]=useState(''),[checkout,setCheckout]=useState(false),[receiving,setReceiving]=useState(false);
  const heading=useRef<HTMLHeadingElement>(null);
- function showCheckout(open:boolean){setCheckout(open);heading.current?.scrollIntoView({block:'start'});}
+ const cart=useRef<HTMLButtonElement>(null),receiveHeading=useRef<HTMLHeadingElement>(null);
+ function showCheckout(open:boolean){setCheckout(open);setReceiving(false);heading.current?.scrollIntoView({block:'start'});}
+ useEffect(()=>{
+  if(receiving){receiveHeading.current?.focus({preventScroll:true});receiveHeading.current?.scrollIntoView({block:'start'});}
+ },[receiving]);
  const request=useRef<{key:string;id:string}|null>(null);
  const lines=catalog.items.filter(item=>counts[item.id]>0);
+ const count=lines.reduce((sum,item)=>sum+counts[item.id],0);
  const subtotal=lines.reduce((sum,item)=>sum+item.price*counts[item.id],0),fee=delivery?catalog.shippingFee:0;
  return <main className="section gift-shop" id="main">
   <h1 ref={heading}>Quà lưu niệm</h1><p>Quà handmade · Nhận tại quầy hoặc giao trong Việt Nam</p>
   {!code&&<div className="gift-view-actions">
-   {checkout?<button type="button" className="outline-button" disabled={busy} onClick={()=>showCheckout(false)}>← Xem sản phẩm</button>:!!lines.length&&<button type="button" className="button" onClick={()=>showCheckout(true)}>Xem giỏ ({lines.reduce((sum,item)=>sum+counts[item.id],0)})</button>}
+   {checkout?<button type="button" className="outline-button" disabled={busy} onClick={()=>showCheckout(false)}>← Xem sản phẩm</button>:<button ref={cart} type="button" className="button gift-cart-link" disabled={!count} onClick={()=>showCheckout(true)} aria-live="polite">Xem giỏ ({count})</button>}
   </div>}
   {code?<p role="status">Đã đặt hàng. Mã đơn <strong>{code}</strong>. JinMemo sẽ liên hệ để xác nhận.</p>:<form onSubmit={async event=>{
-   event.preventDefault();if(!checkout||!lines.length||busy||delivery&&!address)return;
+   event.preventDefault();if(!checkout||!receiving||!lines.length||busy||delivery&&!address)return;
    const form=new FormData(event.currentTarget);
    const order={fulfillment:delivery?'DELIVERY':'PICKUP',name:String(form.get('name')),phone:String(form.get('phone')),address:delivery?address:'',expectedTotal:subtotal+fee,lines:lines.map(item=>({id:item.id,quantity:counts[item.id]}))};
    const key=JSON.stringify(order);
@@ -54,7 +59,10 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
          if(!quantity)adjust(1);
          showCheckout(true);
         }}>{item.stock?'Chọn':'Hết hàng'}</button>
-         <button type="button" className="outline-button" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>adjust(1)}>+ Giỏ{quantity>0?' ('+quantity+')':''}</button>
+         <button type="button" className="gift-add-to-cart" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>{adjust(1);cart.current?.scrollIntoView({block:'start'});}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 3h3l3 12h11l3-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+          Thêm vào giỏ
+         </button>
         </div>}
        </div>
       </article>;
@@ -65,6 +73,9 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
      <h2>Đơn hàng của bạn</h2>
      {!lines.length?<p>Chọn sản phẩm để bắt đầu đặt hàng.</p>:<>
       <ul className="gift-order-lines">{lines.map(item=><li key={item.id}><span>{item.name} × {counts[item.id]}</span><strong>{giftMoney(item.price*counts[item.id])}</strong></li>)}</ul>
+      {!receiving?<><p>Tiền hàng <strong>{giftMoney(subtotal)}</strong></p>
+       <button type="button" className="button" onClick={()=>setReceiving(true)}>Thanh toán</button></>:<section>
+       <h3 ref={receiveHeading} tabIndex={-1} className="gift-receive-heading">Thông tin nhận hàng</h3>
       <fieldset className="gift-fulfillment"><legend>Hình thức nhận hàng</legend>
        <label><input type="radio" name="fulfillment" checked={!delivery} onChange={()=>{setDelivery(false);setAddress('');}}/> Nhận tại quầy</label>
        <label><input type="radio" name="fulfillment" checked={delivery} onChange={()=>setDelivery(true)}/> Giao trong Việt Nam</label>
@@ -78,6 +89,7 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
       <p>Thanh toán khi nhận hàng</p>
       {error&&<p role="alert">{error}</p>}
       <button className="button" disabled={busy||delivery&&!address}>{busy?'Đang đặt…':'Đặt hàng'}</button>
+      </section>}
      </>}
     </aside>}
    </fieldset>

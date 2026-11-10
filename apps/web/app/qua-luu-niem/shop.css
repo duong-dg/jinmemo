@@ -57,3 +57,11 @@
   .gift-checkout { position: static; }
   .gift-product, .gift-checkout { padding: 14px; }
 }
+
+.gift-select .gift-add-to-cart {
+ display: inline-flex; align-items: center; gap: 6px; border: 1px solid #f16b35; border-radius: 10px;
+ color: #ae4319; background: #fff6ef; font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer;
+}
+.gift-add-to-cart:hover:not(:disabled) { background: #ffeadc; }
+.gift-add-to-cart:disabled { opacity: .5; cursor: default; }
+.gift-cart-link, .gift-receive-heading { scroll-margin-top: 112px; }
