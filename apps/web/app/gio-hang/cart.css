@@ -41,4 +41,4 @@
   outline-offset: 2px;
 }
 
-.gift-drawer-section{padding:16px;margin:12px 0;border:1px solid #e0e8e1;border-radius:12px}.gift-drawer-section ul{padding-inline-start:20px}.gift-drawer-section .outline-button{display:inline-flex;margin-top:8px}
+.gift-drawer-section{padding:16px;margin:12px 0;border:1px solid #e0e8e1;border-radius:12px}.gift-drawer-section ul{list-style:none;padding:0}.gift-drawer-section li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:8px;border-bottom:1px solid #e0e8e1}.gift-drawer-section li button{border:0;background:transparent;color:#a13b32;padding:6px 8px;cursor:pointer}.gift-drawer-section .gift-drawer-pay{width:100%;box-sizing:border-box;margin-top:8px}
