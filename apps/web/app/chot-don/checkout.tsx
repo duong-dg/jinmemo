@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import './checkout.css';
 import {useTicketCart,readCart,writeCart,cartKeys,type CartLine} from '../../lib/ticket-cart';
 import {useGiftCart,updateGiftCart} from '../../lib/gift-cart';
 import {useRideCart,readRideCart,writeRideCart} from '../../lib/ride-cart';
@@ -96,7 +97,7 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
   }
  }
 
- return <main className="section" id="main">
+ return <main className="section combined-checkout" id="main">
   <h1>Thanh toán</h1>
   <p>Mỗi nhóm có mã đơn và cách thanh toán riêng. Giá và số chỗ được kiểm tra khi xác nhận.</p>
   {(Object.keys(labels) as Group[]).map(group=>{
@@ -124,12 +125,13 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
     else await place('gifts',gifts.length&&giftReady?{requestId:crypto.randomUUID(),name:contact.name,phone:contact.phone,address:delivery?address:'',fulfillment:delivery?'DELIVERY':'PICKUP',expectedTotal:subtotal+shipping,lines:gifts.map(item=>({id:item.id,quantity:item.quantity}))}:undefined,giftCart);
    }finally{running.current=false;setBusy(false);}
   }}>
-   <fieldset disabled={busy}>
-    {(tickets.length&&!unresolved('tickets')||ride&&!unresolved('ride')||giftIds.length&&giftReady&&!unresolved('gifts'))&&<div className="checkout-contact-grid">
+   <fieldset disabled={busy} className="combined-grid">
+    <div className="combined-details">
+    {(tickets.length&&!unresolved('tickets')||ride&&!unresolved('ride')||giftIds.length&&giftReady&&!unresolved('gifts'))&&<section className="order-card"><h2>Thông tin liên hệ</h2><div className="checkout-contact-grid">
      <label>Họ tên<input name="name" required minLength={2} maxLength={100} autoComplete="name"/></label>
      <label>Số điện thoại<input name="phone" type="tel" required minLength={8} maxLength={25} autoComplete="tel"/></label>
      {(!!tickets.length||!!ride)&&<label>Email<input name="email" type="email" required maxLength={200} autoComplete="email"/></label>}
-    </div>}
+    </div></section>}
     {!!tickets.length&&!unresolved('tickets')&&<section className="order-card"><h2>Vé</h2>
      <ul>{tickets.map(line=><li key={line.id}>{line.productName} · {line.variantName} · {line.date}{line.slotLabel?' · '+line.slotLabel:''} · {giftMoney(line.expectedTotal)}</li>)}</ul>
      <TransportFields items={tickets}/>
@@ -164,13 +166,18 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
       <p>Phí giao {giftMoney(shipping)} · Tổng {giftMoney(subtotal+shipping)} · Trả khi nhận</p></>:<p>Kiểm tra lại số lượng hoặc trạng thái mở bán của quà.</p>}
      <Link href="/qua-luu-niem?gio=1">Xem giỏ quà</Link>
     </section>}
-    <section className="order-card" aria-label="Tổng đơn">
-     <div className="cart-totals"><span>Tổng đơn</span><strong>{giftIds.length&&!giftReady?'Cần kiểm tra giỏ quà':giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0)+(ride?.selection.expectedTotal||0)+subtotal+shipping)}</strong></div>
+    </div>
+    <aside className="order-card combined-summary" aria-label="Tổng đơn">
+     <h2>Tóm tắt đơn hàng</h2>
+     {!!tickets.length&&<p>Vé · {giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0))}</p>}
+     {!!giftIds.length&&giftReady&&delivery&&<p>Phí giao · {giftMoney(shipping)}</p>}
      {ride&&<p>Xe thu sau · {giftMoney(ride.selection.expectedTotal)}</p>}
      {!!giftIds.length&&giftReady&&<p>Quà trả khi nhận · {giftMoney(subtotal+shipping)}</p>}
-    </section>
-    <label><input type="checkbox" required/> Tôi đồng ý tạo đơn cho các nhóm đang hiển thị, với thanh toán riêng cho từng nhóm.</label>
+
+     <div className="cart-totals"><span>Tổng đơn</span><strong>{giftIds.length&&!giftReady?'Cần kiểm tra giỏ quà':giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0)+(ride?.selection.expectedTotal||0)+subtotal+shipping)}</strong></div>
+    <label className="combined-consent"><input type="checkbox" required/> Tôi đồng ý tạo đơn và thanh toán riêng cho từng nhóm.</label>
     <button className="button" disabled={busy||delivery&&giftReady&&!address&&!unresolved('gifts')}>{busy?'Đang xác nhận…':'Xác nhận đặt hàng'}</button>
+    </aside>
    </fieldset>
   </form>}
  </main>;
