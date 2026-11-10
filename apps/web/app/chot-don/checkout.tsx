@@ -97,7 +97,7 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
  }
 
  return <main className="section" id="main">
-  <h1>Chốt đơn chung</h1>
+  <h1>Thanh toán</h1>
   <p>Mỗi nhóm có mã đơn và cách thanh toán riêng. Giá và số chỗ được kiểm tra khi xác nhận.</p>
   {(Object.keys(labels) as Group[]).map(group=>{
    const result=journal[group]?.result;
@@ -164,6 +164,11 @@ export function CombinedCheckout({catalog}:{catalog:GiftConfig|null}){
       <p>Phí giao {giftMoney(shipping)} · Tổng {giftMoney(subtotal+shipping)} · Trả khi nhận</p></>:<p>Kiểm tra lại số lượng hoặc trạng thái mở bán của quà.</p>}
      <Link href="/qua-luu-niem?gio=1">Xem giỏ quà</Link>
     </section>}
+    <section className="order-card" aria-label="Tổng đơn">
+     <div className="cart-totals"><span>Tổng đơn</span><strong>{giftIds.length&&!giftReady?'Cần kiểm tra giỏ quà':giftMoney(tickets.reduce((sum,line)=>sum+line.expectedTotal,0)+(ride?.selection.expectedTotal||0)+subtotal+shipping)}</strong></div>
+     {ride&&<p>Xe thu sau · {giftMoney(ride.selection.expectedTotal)}</p>}
+     {!!giftIds.length&&giftReady&&<p>Quà trả khi nhận · {giftMoney(subtotal+shipping)}</p>}
+    </section>
     <label><input type="checkbox" required/> Tôi đồng ý tạo đơn cho các nhóm đang hiển thị, với thanh toán riêng cho từng nhóm.</label>
     <button className="button" disabled={busy||delivery&&giftReady&&!address&&!unresolved('gifts')}>{busy?'Đang xác nhận…':'Xác nhận đặt hàng'}</button>
    </fieldset>
