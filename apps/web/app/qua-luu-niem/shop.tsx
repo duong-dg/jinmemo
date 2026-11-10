@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import './shop.css';
+import {useGiftCart,updateGiftCart} from '../../lib/gift-cart';
 import {CartIcon} from '../components/cart-icon';
 import {GiftAddress} from './gift-address';
 
@@ -8,25 +9,29 @@ export type GiftItem={id:string;name:string;description:string;imageId?:string;p
 export type GiftConfig={enabled:boolean;shippingFee:number;items:GiftItem[]};
 export const giftMoney=(n:number)=>n.toLocaleString('vi-VN')+' đ';
 
-export function GiftShop({catalog}:{catalog:GiftConfig}){
- const [counts,setCounts]=useState<Record<string,number>>({}),[delivery,setDelivery]=useState(false);
+export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;initialCheckout?:boolean}){
+ const gifts=useGiftCart();
+ const counts=Object.fromEntries(catalog.items.map(item=>[item.id,Math.min(item.stock,gifts[item.id]?.quantity||0)]));
+ const [delivery,setDelivery]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[code,setCode]=useState('');
- const [address,setAddress]=useState(''),[checkout,setCheckout]=useState(false),[receiving,setReceiving]=useState(false);
+ const [address,setAddress]=useState(''),[checkout,setCheckout]=useState(initialCheckout),[receiving,setReceiving]=useState(initialCheckout);
  const heading=useRef<HTMLHeadingElement>(null);
- const cart=useRef<HTMLButtonElement>(null),receiveHeading=useRef<HTMLHeadingElement>(null);
+ const receiveHeading=useRef<HTMLHeadingElement>(null);
  function showCheckout(open:boolean){setCheckout(open);setReceiving(false);heading.current?.scrollIntoView({block:'start'});}
  useEffect(()=>{
   if(receiving){receiveHeading.current?.focus({preventScroll:true});receiveHeading.current?.scrollIntoView({block:'start'});}
  },[receiving]);
+ useEffect(()=>{
+  const open=()=>{setCheckout(true);setReceiving(true);};
+  window.addEventListener('jinmemo-checkout-gifts',open);
+  return()=>window.removeEventListener('jinmemo-checkout-gifts',open);
+ },[]);
  const request=useRef<{key:string;id:string}|null>(null);
  const lines=catalog.items.filter(item=>counts[item.id]>0);
- const count=lines.reduce((sum,item)=>sum+counts[item.id],0);
  const subtotal=lines.reduce((sum,item)=>sum+item.price*counts[item.id],0),fee=delivery?catalog.shippingFee:0;
  return <main className="section gift-shop" id="main">
   <h1 ref={heading}>Quà lưu niệm</h1><p>Quà handmade · Nhận tại quầy hoặc giao trong Việt Nam</p>
-  {!code&&<div className="gift-view-actions">
-   {checkout?<button type="button" className="outline-button" disabled={busy} onClick={()=>showCheckout(false)}>← Xem sản phẩm</button>:<button ref={cart} type="button" className="button gift-cart-link" disabled={!count} onClick={()=>showCheckout(true)} aria-live="polite">Xem giỏ ({count})</button>}
-  </div>}
+  {!code&&checkout&&<div className="gift-view-actions"><button type="button" className="outline-button" disabled={busy} onClick={()=>showCheckout(false)}>← Xem sản phẩm</button></div>}
   {code?<p role="status">Đã đặt hàng. Mã đơn <strong>{code}</strong>. JinMemo sẽ liên hệ để xác nhận.</p>:<form onSubmit={async event=>{
    event.preventDefault();if(!checkout||!receiving||!lines.length||busy||delivery&&!address)return;
    const form=new FormData(event.currentTarget);
@@ -38,6 +43,15 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
     const res=await fetch('/api/v1/gifts',{method:'POST',headers:{'Content-Type':'application/json','X-JinMemo-Gifts':'1'},body:JSON.stringify({...order,requestId:request.current.id})});
     const result=await res.json();
     if(!res.ok)throw new Error(result.message||'Chưa đặt được quà.');
+    updateGiftCart(current=>{
+     const next={...current};
+     for(const line of order.lines){
+      const remaining=(next[line.id]?.quantity||0)-line.quantity;
+      if(remaining>0)next[line.id]={...next[line.id],quantity:remaining};
+      else delete next[line.id];
+     }
+     return next;
+    });
     setCode(result.code);
    }catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }}>
@@ -45,7 +59,14 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
     <section className="gift-products" aria-label="Sản phẩm">
      {(checkout?lines:catalog.items).map(item=>{
       const quantity=counts[item.id]||0;
-      const adjust=(amount:number)=>setCounts(old=>({...old,[item.id]:Math.max(0,Math.min(Math.min(item.stock,50),(old[item.id]||0)+amount))}));
+      const adjust=(amount:number)=>updateGiftCart(current=>{
+       if(!current[item.id]&&Object.keys(current).length>=20)return current;
+       const next={...current};
+       const quantity=Math.max(0,Math.min(item.stock,50,Math.min(item.stock,current[item.id]?.quantity||0)+amount));
+       if(quantity)next[item.id]={name:item.name,quantity};
+       else delete next[item.id];
+       return next;
+      });
       return <article className="gift-product" key={item.id}>
        {item.imageId?<img src={'/api/v1/media/'+item.imageId} alt={item.name} width={240} height={180} loading="lazy"/>:<div className="gift-placeholder" aria-hidden="true">✦</div>}
        <div className="gift-product-copy">
@@ -55,13 +76,13 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
         {checkout?<div className="package-stepper gift-stepper">
          <button type="button" aria-label={'Giảm '+item.name} disabled={!quantity} onClick={()=>adjust(-1)}>−</button>
          <output aria-label={'Số lượng '+item.name}>{quantity}</output>
-         <button type="button" aria-label={'Thêm '+item.name} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>adjust(1)}>+</button>
-        </div>:<div className="gift-select"><button type="button" className="button" disabled={!item.stock||(!quantity&&lines.length>=20)} onClick={()=>{
+         <button type="button" aria-label={'Thêm '+item.name} disabled={quantity>=Math.min(item.stock,50)||(!gifts[item.id]&&Object.keys(gifts).length>=20)} onClick={()=>adjust(1)}>+</button>
+        </div>:<div className="gift-select"><button type="button" className="button" disabled={!item.stock||(!gifts[item.id]&&Object.keys(gifts).length>=20)} onClick={()=>{
          if(!quantity)adjust(1);
          showCheckout(true);
         }}>{item.stock?'Chọn':'Hết hàng'}</button>
-         <button type="button" className="gift-add-to-cart" title="Thêm vào giỏ" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!quantity&&lines.length>=20)} onClick={()=>{adjust(1);cart.current?.scrollIntoView({block:'start'});}}>
-          <CartIcon/>
+         <button type="button" className="gift-add-to-cart" title="Thêm vào giỏ" aria-label={'Thêm '+item.name+' vào giỏ'} disabled={quantity>=Math.min(item.stock,50)||(!gifts[item.id]&&Object.keys(gifts).length>=20)} onClick={()=>adjust(1)}>
+          <CartIcon/> Thêm vào giỏ
          </button>
         </div>}
        </div>

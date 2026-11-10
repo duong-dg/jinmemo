@@ -40,3 +40,5 @@
   outline: 2px solid #274d3c;
   outline-offset: 2px;
 }
+
+.gift-drawer-section{padding:16px;margin:12px 0;border:1px solid #e0e8e1;border-radius:12px}.gift-drawer-section ul{padding-inline-start:20px}.gift-drawer-section .outline-button{display:inline-flex;margin-top:8px}
