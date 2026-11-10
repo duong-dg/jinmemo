@@ -58,6 +58,16 @@ test('customers create and fill shared groups; section saves do not overwrite ea
  const paid=(await(await posCall('rides/status',{code:counterCode},posCookie)).json());
  assert.equal(paid.paymentStatus,'PAID');
  assert.equal(paid.cashReceipt.id,receipt.id);
+
+ const today=new Date(Date.now()+7*3600000).toISOString().slice(0,10);
+ await pool.query('UPDATE jinmemo_ride_bookings SET visit_date=$1,data=$2 WHERE code=$3',[today,JSON.stringify({...savedReturn,returnTime:undefined}),returnCode]);
+ await pool.query("UPDATE jinmemo_ride_bookings SET visit_date=$1,status='COMPLETED' WHERE code=$2",[today,counterCode]);
+ const dispatch=await(await call('/admin/rides?dispatch=return',undefined,cookie)).json();
+ assert.deepEqual(dispatch.data.map((row:any)=>row.code),[returnCode]);
+ assert.equal(dispatch.dispatchCounts.all,2);
+ assert.equal(dispatch.dispatchCounts.driver,1);
+ assert.equal(dispatch.dispatchCounts.return,1);
+ assert.equal((await call('/admin/rides?dispatch=invalid',undefined,cookie)).status,400);
  }finally{await app.close();}
 });
 
