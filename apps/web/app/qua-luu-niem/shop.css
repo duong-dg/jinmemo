@@ -1,0 +1,40 @@
+.gift-shop { max-width: 1200px; margin-inline: auto; }
+.gift-layout {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(310px, 1fr);
+  gap: 24px; align-items: start; min-width: 0; border: 0; padding: 0; margin: 24px 0 0;
+}
+.gift-products { display: grid; gap: 14px; }
+.gift-product, .gift-checkout {
+  padding: 20px; border: 1px solid #e0e8e1; border-radius: 16px; background: #fff;
+}
+.gift-product { display: grid; grid-template-columns: minmax(90px, 34%) minmax(0, 1fr); gap: 18px; }
+.gift-product img, .gift-placeholder { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.gift-placeholder { display: grid; place-items: center; background: #edf3ee; color: #446852; font-size: 28px; }
+.gift-product h2, .gift-checkout h2 { margin: 0 0 8px; font-size: 1.25rem; }
+.gift-product-copy { min-width: 0; overflow-wrap: anywhere; }
+.gift-product-copy > small { display: block; margin: 5px 0; color: #536558; }
+.gift-stepper { display: flex; align-items: center; gap: 12px; width: max-content; margin-top: 8px; }
+.gift-stepper button {
+  width: 34px; height: 34px; border: 1px solid #cbd8cf; border-radius: 50%;
+  background: #edf3ee; color: #203e36; font: inherit; cursor: pointer;
+}
+.gift-stepper button:disabled { opacity: .4; cursor: default; }
+.gift-checkout { position: sticky; top: 100px; }
+.gift-order-lines { list-style: none; padding: 0; }
+.gift-order-lines li, .gift-totals div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.gift-order-lines strong, .gift-totals dd { white-space: nowrap; margin: 0; }
+.gift-fulfillment { border: 0; padding: 0; margin: 12px 0; }
+.gift-fulfillment legend { font-weight: 600; margin-bottom: 6px; }
+.gift-fulfillment label { display: block; padding-block: 4px; }
+.gift-contact { display: grid; gap: 10px; }
+.gift-contact label { display: grid; gap: 5px; }
+.gift-contact input, .gift-contact textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid #cbd8cf; border-radius: 8px; font: inherit;
+}
+.gift-totals div:last-child { border-top: 1px solid #e0e8e1; font-weight: 700; }
+.gift-checkout .button { width: 100%; justify-content: center; }
+@media (max-width: 760px) {
+  .gift-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .gift-checkout { position: static; }
+  .gift-product, .gift-checkout { padding: 14px; }
+}
