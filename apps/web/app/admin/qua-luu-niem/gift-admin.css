@@ -12,3 +12,7 @@
 .gift-admin-dialog::backdrop{background:#15271d80}
 .gift-admin-dialog .config-card{margin:0}
 .gift-admin-actions{margin:16px 0 0}
+
+.gift-admin-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.gift-admin-dialog-heading h2{margin:0}
+.gift-admin-dialog-heading button{font-size:1.25rem;line-height:1}

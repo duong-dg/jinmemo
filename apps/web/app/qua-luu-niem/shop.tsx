@@ -37,7 +37,7 @@ export function GiftShop({catalog}:{catalog:GiftConfig}){
   }}>
    <fieldset disabled={busy} className={checkout?'gift-layout':'gift-browse'}>
     <section className="gift-products" aria-label="Sản phẩm">
-     {catalog.items.map(item=>{
+     {(checkout?lines:catalog.items).map(item=>{
       const quantity=counts[item.id]||0;
       const adjust=(amount:number)=>setCounts(old=>({...old,[item.id]:Math.max(0,Math.min(Math.min(item.stock,50),(old[item.id]||0)+amount))}));
       return <article className="gift-product" key={item.id}>

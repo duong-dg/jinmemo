@@ -61,7 +61,10 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
     });
    }}>
     <fieldset className="config-card" disabled={busy}>
-     <h2 id="gift-editor-title">{draft.id?'Sửa sản phẩm':'Thêm sản phẩm'}</h2>
+     <div className="gift-admin-dialog-heading">
+      <h2 id="gift-editor-title">{draft.id?'Sửa sản phẩm':'Thêm sản phẩm'}</h2>
+      <button type="button" className="outline-button" aria-label="Đóng popup sản phẩm" onClick={()=>dialog.current?.close()}>×</button>
+     </div>
      <div className="field-grid">
       <label>Tên sản phẩm<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
       <label>Giá bán (VND)<input type="number" min={1} max={100000000} required value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label>
