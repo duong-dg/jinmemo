@@ -2,43 +2,73 @@
 import {useEffect,useState} from 'react';
 import {adminApi} from '../shared/admin-api';
 import {ImageField} from '../shared/media-picker';
-import {giftMoney,type GiftConfig,type GiftItem} from '../../qua-luu-niem/shop';
+import {giftMoney,type GiftConfig} from '../../qua-luu-niem/shop';
 
 type Config=GiftConfig&{version:number};
 type GiftOrder={id:string;code:string;status:string;data:{name:string;phone:string;address:string;fulfillment:string;total:number;shippingFee:number;lines:{id:string;name:string;quantity:number}[]}};
 const labels:Record<string,string>={PENDING:'Chờ xử lý',SHIPPING:'Đang giao',COMPLETED:'Đã giao / nhận',CANCELLED:'Đã hủy'};
-export function GiftEditor({view='products'}:{view?:'products'|'orders'}){
+export function GiftEditor({view='products'}:{view?:'products'|'orders'|'settings'}){
  const [config,setConfig]=useState<Config>(),[orders,setOrders]=useState<GiftOrder[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [draft,setDraft]=useState({id:'',name:'',description:'',price:'',stock:'',imageId:undefined as string|undefined,active:false});
+ const [shippingFee,setShippingFee]=useState(''),[enabled,setEnabled]=useState(false);
+ const product= draft.id ? config?.items.find(item=>item.id===draft.id) : undefined;
+ const valid=!!draft.name.trim()&&draft.price!==''&&draft.stock!==''&&Number.isInteger(Number(draft.price))&&Number(draft.price)>0&&Number(draft.price)<=100000000&&Number.isSafeInteger(Number(draft.stock))&&Number(draft.stock)>=0;
+ const item={...draft,name:draft.name.trim(),price:Number(draft.price),stock:Number(draft.stock)};
+ const dirty=!product||(['name','description','price','stock','active','imageId'] as const).some(key=>product[key]!==item[key]);
+ function reset(){setDraft({id:'',name:'',description:'',price:'',stock:'',imageId:undefined,active:false});}
  async function run(action:()=>Promise<void>){
   setBusy(true);setError('');setNotice('');
   try{await action();}catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
- async function load(){const data=await adminApi('gifts');setConfig(data.config);setOrders(data.data);}
+ async function load(){const data=await adminApi('gifts');setConfig(data.config);setOrders(data.data);setShippingFee(String(data.config.shippingFee));setEnabled(data.config.enabled);}
  useEffect(()=>{void run(load);},[]);
- function patch(id:string,values:Partial<GiftItem>){setConfig(old=>old&&({...old,items:old.items.map(item=>item.id===id?{...item,...values}:item)}));}
  return <section>
   {error&&<p className="admin-error" role="alert">{error}</p>}
   {notice&&<p className="admin-success" role="status">{notice}</p>}
-  {view==='products'&&config&&<form onSubmit={e=>{e.preventDefault();void run(async()=>{setConfig(await adminApi('gifts',config));setNotice('Đã lưu quà lưu niệm.');});}}>
-   <fieldset className="config-card" disabled={busy}>
-    <label className="checkbox-label"><input type="checkbox" checked={config.enabled} onChange={e=>setConfig({...config,enabled:e.target.checked})}/> Mở bán quà lưu niệm</label>
-    <label>Phí giao chung mỗi đơn trong Việt Nam (VND)<input type="number" min={0} max={10000000} required value={config.shippingFee} onChange={e=>setConfig({...config,shippingFee:Number(e.target.value)})}/></label>
-    <p className="admin-hint">Nhận tại quầy miễn phí. Số lượng còn bán tự giảm khi có đơn.</p>
-    {config.items.map(item=><details className="config-card" key={item.id}>
-     <summary>{item.name} · {giftMoney(item.price)} · Còn {item.stock}</summary>
+  {view==='products'&&config&&<>
+   <form onSubmit={e=>{
+    e.preventDefault();if(!valid||!dirty||busy||(!draft.id&&config.items.length>=200))return;
+    void run(async()=>{
+     const saved={...item,id:draft.id||crypto.randomUUID()};
+     const items=draft.id?config.items.map(row=>row.id===saved.id?saved:row):[saved,...config.items];
+     setConfig(await adminApi('gifts',{...config,items}));reset();setNotice('Đã lưu sản phẩm.');
+    });
+   }}>
+    <fieldset className="config-card" disabled={busy}>
+     <h2>{draft.id?'Sửa sản phẩm':'Thêm sản phẩm'}</h2>
      <div className="field-grid">
-      <label>Tên món quà<input required maxLength={150} value={item.name} onChange={e=>patch(item.id,{name:e.target.value})}/></label>
-      <label>Giá bán (VND)<input type="number" min={1} max={100000000} required value={item.price} onChange={e=>patch(item.id,{price:Number(e.target.value)})}/></label>
-      <label>Số lượng còn bán<input type="number" min={0} required value={item.stock} onChange={e=>patch(item.id,{stock:Number(e.target.value)})}/></label>
-      <label>Mô tả<textarea maxLength={2000} value={item.description} onChange={e=>patch(item.id,{description:e.target.value})}/></label>
+      <label>Tên sản phẩm<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
+      <label>Giá bán (VND)<input type="number" min={1} max={100000000} required value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label>
+      <label>Số lượng còn bán<input type="number" min={0} required value={draft.stock} onChange={e=>setDraft({...draft,stock:e.target.value})}/></label>
+      <label>Mô tả<textarea maxLength={2000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label>
      </div>
-     <ImageField label="Ảnh món quà" value={item.imageId?{id:item.imageId,alt:item.name}:null} onChange={image=>patch(item.id,{imageId:image?.id})}/>
-     <label className="checkbox-label"><input type="checkbox" checked={item.active} onChange={e=>patch(item.id,{active:e.target.checked})}/> Hiện sản phẩm</label>
-    </details>)}
-    <button type="button" className="outline-button" disabled={config.items.length>=200} onClick={()=>setConfig({...config,items:[{id:crypto.randomUUID(),name:'Món quà mới',description:'',price:50000,stock:0,active:false},...config.items]})}>Thêm sản phẩm</button>
-    <button className="button" type="submit">Lưu sản phẩm và thiết lập</button>
-    <button type="button" className="outline-button" onClick={()=>{if(window.confirm('Tải lại bảng và bỏ các thay đổi chưa lưu?'))void run(load);}}>Tải lại</button>
+     <ImageField label="Ảnh sản phẩm" value={draft.imageId?{id:draft.imageId,alt:draft.name}:null} onChange={image=>setDraft({...draft,imageId:image?.id})}/>
+     <label className="checkbox-label"><input type="checkbox" checked={draft.active} onChange={e=>setDraft({...draft,active:e.target.checked})}/> Hiện sản phẩm</label>
+     <button className="button" disabled={!valid||!dirty||(!draft.id&&config.items.length>=200)}>{draft.id?'Lưu thay đổi':'Thêm sản phẩm'}</button>
+     {draft.id&&<button className="outline-button" type="button" onClick={reset}>Hủy chỉnh sửa</button>}
+    </fieldset>
+   </form>
+   <h2>Sản phẩm đã lưu</h2>
+   {!config.items.length&&<p>Chưa có sản phẩm.</p>}
+   {config.items.map(row=><div className="config-card" key={row.id}>
+    <strong>{row.name}</strong> · {giftMoney(row.price)} · Còn {row.stock} · {row.active?'Đang hiện':'Đang ẩn'}
+    <button className="outline-button" type="button" disabled={busy} onClick={e=>{
+     setDraft({...row,price:String(row.price),stock:String(row.stock),imageId:row.imageId});
+     e.currentTarget.closest('section')?.querySelector('form')?.scrollIntoView({block:'start'});
+    }}>Sửa</button>
+   </div>)}
+  </>}
+  {view==='settings'&&config&&<form onSubmit={e=>{
+   e.preventDefault();if(!e.currentTarget.reportValidity()||busy||(!shippingFee.trim()||enabled===config.enabled&&Number(shippingFee)===config.shippingFee))return;
+   void run(async()=>{setConfig(await adminApi('gifts',{...config,enabled,shippingFee:Number(shippingFee)}));setNotice('Đã lưu thiết lập giao hàng.');});
+  }}>
+   <fieldset className="config-card" disabled={busy}>
+    <h2>Thiết lập giao hàng</h2>
+    <label className="checkbox-label"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Mở bán quà lưu niệm</label>
+    <label>Phí giao mỗi đơn trong Việt Nam (VND)<input type="number" min={0} max={10000000} step={1} required value={shippingFee} onChange={e=>setShippingFee(e.target.value)}/></label>
+    <p className="admin-hint">Nhận tại quầy miễn phí.</p>
+    <button className="button" disabled={!shippingFee.trim()||!Number.isInteger(Number(shippingFee))||Number(shippingFee)<0||Number(shippingFee)>10000000||enabled===config.enabled&&Number(shippingFee)===config.shippingFee}>Lưu thiết lập</button>
    </fieldset>
   </form>}
   {view==='orders'&&<><h2>Đơn bán quà lưu niệm</h2>
@@ -52,7 +82,7 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'}){
    {!['COMPLETED','CANCELLED'].includes(order.status)&&<div className="transport-toolbar">
     {(order.data.fulfillment==='DELIVERY'&&order.status==='PENDING'?['SHIPPING','COMPLETED','CANCELLED']:['COMPLETED','CANCELLED']).map(status=><button key={status} type="button" className="outline-button" disabled={busy} onClick={()=>{
      if(!window.confirm('Chuyển đơn '+order.code+' sang '+labels[status]+'?'))return;
-     void run(async()=>{await adminApi('gifts/orders/'+order.id,{status});const data=await adminApi('gifts');setOrders(data.data);if(status==='CANCELLED')setNotice('Đã hủy và trả hàng về kho. Tải lại trước khi sửa tồn kho.');});
+     void run(async()=>{await adminApi('gifts/orders/'+order.id,{status});const data=await adminApi('gifts');setOrders(data.data);if(status==='CANCELLED')setNotice('Đã hủy và trả hàng về kho.');});
     }}>{labels[status]}</button>)}
    </div>}
   </details>)}</>}
