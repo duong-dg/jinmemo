@@ -166,3 +166,14 @@ CREATE TABLE IF NOT EXISTS jinmemo_gift_orders(
  data jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS jinmemo_gift_orders_recent ON jinmemo_gift_orders(created_at DESC);
+
+-- A mixed checkout links existing domain orders; one gateway attempt covers its exact total.
+ALTER TABLE jinmemo_gateway_attempts ALTER COLUMN order_id DROP NOT NULL;
+CREATE TABLE IF NOT EXISTS jinmemo_checkout_bundles(
+ id uuid PRIMARY KEY,code text UNIQUE NOT NULL,access_hash text NOT NULL,total bigint NOT NULL CHECK(total>0),
+ status text NOT NULL DEFAULT 'PENDING',data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS jinmemo_checkout_members(
+ kind text NOT NULL,entity_id text NOT NULL,bundle_id uuid NOT NULL REFERENCES jinmemo_checkout_bundles(id),PRIMARY KEY(kind,entity_id)
+);
+CREATE INDEX IF NOT EXISTS jinmemo_checkout_members_bundle ON jinmemo_checkout_members(bundle_id);

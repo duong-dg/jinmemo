@@ -5,8 +5,8 @@ import{useEffect,useState}from'react';
 import Link from'next/link';
 import{adminApi}from'./admin-api';
 const menuGroups=[
- {label:'Bán hàng',items:[['pos','/admin/ban-tai-quay','Bán vé tại quầy'],['shifts','/admin/ca-quay','Ca quầy & bàn giao'],['pos-users','/admin/nhan-vien-quay','Nhân viên & phân quyền'],['reports','/admin/bao-cao','Báo cáo doanh thu'],['vouchers','/admin/voucher','Mã giảm giá & voucher']]},
- {label:'Thanh toán',items:[['payments','/admin/thanh-toan','Cổng thanh toán'],['payment-journal','/admin/doi-soat-thanh-toan','Đối soát thanh toán']]},
+ {label:'Bán hàng',items:[['counters','/admin/quay-ban','Quản lý quầy bán'],['pos','/admin/ban-tai-quay','Bán vé tại quầy'],['shifts','/admin/ca-quay','Ca quầy & bàn giao'],['pos-users','/admin/nhan-vien-quay','Nhân viên & phân quyền'],['reports','/admin/bao-cao','Báo cáo doanh thu'],['vouchers','/admin/voucher','Mã giảm giá & voucher']]},
+ {label:'Thanh toán',items:[['bundle-orders','/admin/thanh-toan-chung','Đơn thanh toán chung'],['payments','/admin/thanh-toan','Cổng thanh toán'],['payment-journal','/admin/doi-soat-thanh-toan','Đối soát thanh toán']]},
  {label:'Quà lưu niệm',items:[['gifts','/admin/qua-luu-niem','Sản phẩm'],['gift-orders','/admin/qua-luu-niem/don-ban','Đơn bán'],['gift-settings','/admin/qua-luu-niem/thiet-lap','Thiết lập giao hàng']]},
  {label:'Đặt xe',items:[['ride-settings','/admin/xe/thiet-lap','Thiết lập dịch vụ xe'],['ride-vehicles','/admin/xe/loai-xe','Loại xe'],['ride-areas','/admin/xe/khu-vuc','Khu vực đón trả'],['ride-fares','/admin/xe/gia-tuyen','Giá tuyến'],['transport','/admin/dat-xe','Đơn xe & điều xe']]},
  {label:'Vé & tour',items:[['products','/admin','Vé & tour — danh sách & giá'],['inventory','/admin/ton-ve','Tồn vé & giới hạn'],['supply','/admin/nguon-ve','Nguồn vé & giá vốn'],['ticket-stock','/admin/kho-ma','Kho mã vé'],['suppliers','/admin/nha-cung-cap','Nhà cung cấp'],['supplier-statements','/admin/doi-soat-ncc','Đối soát nhà cung cấp'],['types','/admin/loai-san-pham','Loại sản phẩm'],['destinations','/admin/diem-den','Điểm đến']]},

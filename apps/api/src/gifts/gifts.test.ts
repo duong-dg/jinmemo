@@ -44,6 +44,9 @@ test('gift checkout charges shipping once, prevents repeat stock deductions and 
   const counterId=randomUUID(),address='12 Trần Phú, Hội An';
   assert.equal((await call('/admin/counters',{id:counterId,name:'Quầy Hội An',address,status:'ACTIVE',version:0},cookie)).status,201);
   assert.deepEqual((await(await call('/gifts')).json()).data.pickupCounters,[{id:counterId,name:'Quầy Hội An',address}]);
+  const counter=(await(await call('/admin/counters',undefined,cookie)).json()).data.find((row:any)=>row.id===counterId);
+  assert.equal((await call('/admin/counters',{...counter,addressEn:'12 Tran Phu Street, Hoi An',nameEn:'Hoi An counter'},cookie)).status,201);
+  const translatedCounter=(await(await call('/gifts?lang=en')).json()).data.pickupCounters[0];assert.equal(translatedCounter.addressEn,'12 Tran Phu Street, Hoi An');assert.equal(translatedCounter.address,address);
   const pickup={...order,requestId:randomUUID(),fulfillment:'PICKUP',expectedTotal:60000};
   assert.equal((await call('/gifts',pickup)).status,409);
   assert.equal((await call('/gifts',{...pickup,pickupCounterId:counterId})).status,201);

@@ -1,3 +1,4 @@
+import {BundlePayments} from './bundle-payments';
 import {RidePayments} from './ride-payments';
 import{ManualMethods}from'./manual-methods';
 import{PaypalGateway,paypalCents}from'./paypal';
@@ -5,12 +6,12 @@ import{issueSepayToken,verifySepayToken}from'./protocol';
 import{verifySepayWebhook,sepayWebhookCredential}from'./protocol';
 import{ShiftsService}from'../shifts/shifts.module';import type{PosActor}from'../pos/pos.schema';
 import{ForbiddenException,BadRequestException,ConflictException,Injectable,NotFoundException,UnauthorizedException}from'@nestjs/common';import{z}from'zod';import{createHash,randomBytes,randomUUID}from'node:crypto';import{DatabaseService}from'../database/database.module';import{MailService}from'../mail/mail.module';import{lookupInput}from'../orders/orders.schema';import{PaymentSettings}from'./settings';import{sepaySign,sepayAmount,digest,equalSecret,vnpCanonical,vnpSign,vnpVerify,vnTime}from'./protocol';
-const checkoutSchema=z.object({code:z.string().regex(/^J[MC][A-F0-9]{10}$/),accessKey:z.string().regex(/^[a-f0-9]{64}$/).optional(),email:z.email().max(200).optional(),provider:z.enum(['VNPAY','SEPAY','VNPAY_CARD','SEPAY_CARD','VNPAY_QR','PAYPAL'])}).strict();
+const checkoutSchema=z.object({code:z.string().regex(/^J[MCB][A-F0-9]{10}$/),accessKey:z.string().regex(/^[a-f0-9]{64}$/).optional(),email:z.email().max(200).optional(),provider:z.enum(['VNPAY','SEPAY','VNPAY_CARD','SEPAY_CARD','VNPAY_QR','PAYPAL'])}).strict();
 export type PaymentContext={channel:'ADMIN'|'POS'|'CTV';actor?:PosActor;partnerId?:string};
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
 @Injectable()export class PaymentsService{
  private nextPayloadCleanup=0;
- constructor(private readonly manualMethods:ManualMethods,private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway,private readonly ridePayments:RidePayments){}
+ constructor(private readonly manualMethods:ManualMethods,private readonly db:DatabaseService,private readonly settings:PaymentSettings,private readonly mail:MailService,private readonly shifts:ShiftsService,private readonly paypal:PaypalGateway,private readonly ridePayments:RidePayments,private readonly bundles:BundlePayments){}
  async sepayToken(body:unknown,authorization:string){
  const c=await this.settings.config();const fail=()=>{throw new UnauthorizedException({error:'invalid_client'});};
  if(!c.sepayEnabled||c.sepayAuth!=='OAUTH2'||!c.sepayOauthEncrypted)return fail();
@@ -32,8 +33,12 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  async checkout(body:unknown,ip:string,test=false,context?:PaymentContext){
  const parsed=checkoutSchema.safeParse(body);if(!parsed.success)throw new BadRequestException('Thông tin thanh toán không hợp lệ.');const qrSelected=parsed.data.provider==='VNPAY_QR',card=parsed.data.provider==='VNPAY_CARD',input={...parsed.data,provider:(card||qrSelected)?'VNPAY':parsed.data.provider};if(!test&&!context&&!input.accessKey&&!input.email)throw new BadRequestException('Nhập khóa hoặc email tra cứu.');
  const c=await this.settings.config();if(test?c.mode!=='TEST':c.mode!=='LIVE')throw new BadRequestException('Cổng đang ở môi trường khác.');if(input.provider==='PAYPAL'?!c.paypalEnabled:input.provider==='VNPAY'?(!c.vnpayEnabled||card&&!c.vnpayCardEnabled):input.provider==='SEPAY_CARD'?!c.sepayCardEnabled:!c.sepayEnabled)throw new BadRequestException('Cổng thanh toán chưa bật.');
- const client=await this.db.pool.connect();try{await client.query('BEGIN');let row:any,cart:any,cartOrders:{id:string;amount:number}[]|undefined;
- if(input.code.startsWith('JC')){
+ const client=await this.db.pool.connect();try{await client.query('BEGIN');let row:any,cart:any,bundle:any,cartOrders:{id:string;amount:number}[]|undefined;
+ if(input.code.startsWith('JB')){
+   if(context||test)throw new BadRequestException('Đơn chung dùng thanh toán web.');
+   const state=await this.bundles.authorize(client,input.code,input.accessKey);if(state.reason)throw new ConflictException(state.reason);
+   bundle=state.bundle;row={id:null,booking_status:'CONFIRMED',payment_status:'UNPAID',snapshot:{total:state.total,locale:bundle.data.locale}};
+ }else if(input.code.startsWith('JC')){
    cart=(await client.query('SELECT * FROM jinmemo_carts WHERE code=$1 FOR UPDATE',[input.code])).rows[0];if(!cart||!context&&cart.channel!=='WEB')throw new NotFoundException('Không tìm thấy đơn.');
    if(context){
      if(context.channel==='CTV'){
@@ -51,12 +56,15 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
    row=(await client.query('SELECT * FROM jinmemo_orders WHERE code=$1 FOR UPDATE',[input.code])).rows[0];if(!row||!test&&(input.accessKey?row.access_hash!==hash(input.accessKey):String(row.contact?.email||'').trim().toLowerCase()!==input.email?.trim().toLowerCase()))throw new NotFoundException('Không tìm thấy đơn.');
    if((await client.query('SELECT cart_id FROM jinmemo_cart_orders WHERE order_id=$1',[row.id])).rowCount)throw new ConflictException('Mở giỏ để thanh toán các gói cùng một lần.');
  }
+ if(!bundle){
+ if((await client.query('SELECT bundle_id FROM jinmemo_checkout_members WHERE kind=$1 AND entity_id=$2',[cart?'cartId':'orderId',cart?.id||row.id])).rowCount)throw new ConflictException('Đơn này thuộc thanh toán chung. Mở đơn JB để thanh toán tổng.');
  const partner=(await client.query('SELECT order_id FROM jinmemo_partner_orders WHERE order_id=$1',[row.id])).rowCount,pos=(await client.query('SELECT order_id FROM jinmemo_pos_orders WHERE order_id=$1',[row.id])).rowCount,archived=(await client.query('SELECT order_id FROM jinmemo_order_archives WHERE order_id=$1',[row.id])).rowCount;
  if((!context&&(partner||pos))||archived||row.booking_status!=='CONFIRMED'||row.payment_status!=='UNPAID'||row.snapshot.total<=0)throw new ConflictException('Chỉ thanh toán đơn đã xác nhận, chưa thu tiền và còn hiệu lực.');
- let attempt=(await client.query("SELECT * FROM jinmemo_gateway_attempts WHERE order_id=$1 AND provider=$2 AND mode=$3 AND config_version=$4 AND status='PENDING' AND expires_at>$5 AND amount=$6 ORDER BY created_at DESC LIMIT 1",[row.id,input.provider,c.mode,c.version,new Date(),row.snapshot.total])).rows[0];
+ }
+ let attempt=bundle?(await client.query("SELECT * FROM jinmemo_gateway_attempts WHERE config->>'bundleId'=$1 AND provider=$2 AND mode=$3 AND config_version=$4 AND status='PENDING' AND expires_at>$5 AND amount=$6 ORDER BY created_at DESC LIMIT 1",[bundle.id,input.provider,c.mode,c.version,new Date(),row.snapshot.total])).rows[0]:(await client.query("SELECT * FROM jinmemo_gateway_attempts WHERE order_id=$1 AND provider=$2 AND mode=$3 AND config_version=$4 AND status='PENDING' AND expires_at>$5 AND amount=$6 ORDER BY created_at DESC LIMIT 1",[row.id,input.provider,c.mode,c.version,new Date(),row.snapshot.total])).rows[0];
  if(attempt&&(!!attempt.config.card!==card||!!attempt.config.qr!==qrSelected))attempt=undefined;
  if(attempt&&JSON.stringify(attempt.config.cartOrders)!==JSON.stringify(cartOrders))attempt=undefined;
- if(!attempt){const token='JMP'+randomBytes(12).toString('hex').toUpperCase(),snapshot={...(input.provider==='PAYPAL'?{paypalClientId:c.paypalClientId,paypalEncrypted:c.paypalEncrypted,paypalWebhookId:c.paypalWebhookId,paypalRate:c.paypalRate,usdCents:paypalCents(row.snapshot.total,c.paypalRate)}:input.provider==='VNPAY'?{tmnCode:c.tmnCode,secret:c.vnpayEncrypted,card,qr:qrSelected}:input.provider==='SEPAY_CARD'?{merchant:c.sepayMerchantId,secret:c.sepayCardEncrypted,ipnKey:c.sepayCardIpnEncrypted}:{bankCode:c.bankCode,accountNumber:c.accountNumber,accountName:c.accountName}),...(cart?{cartId:cart.id,cartOrders,channel:cart.channel,partnerId:cart.partner_id,counterId:cart.counter_id}:{})};
+ if(!attempt){const token='JMP'+randomBytes(12).toString('hex').toUpperCase(),snapshot={...(bundle?{bundleId:bundle.id}:{}),...(input.provider==='PAYPAL'?{paypalClientId:c.paypalClientId,paypalEncrypted:c.paypalEncrypted,paypalWebhookId:c.paypalWebhookId,paypalRate:c.paypalRate,usdCents:paypalCents(row.snapshot.total,c.paypalRate)}:input.provider==='VNPAY'?{tmnCode:c.tmnCode,secret:c.vnpayEncrypted,card,qr:qrSelected}:input.provider==='SEPAY_CARD'?{merchant:c.sepayMerchantId,secret:c.sepayCardEncrypted,ipnKey:c.sepayCardIpnEncrypted}:{bankCode:c.bankCode,accountNumber:c.accountNumber,accountName:c.accountName}),...(cart?{cartId:cart.id,cartOrders,channel:cart.channel,partnerId:cart.partner_id,counterId:cart.counter_id}:{})};
  await client.query('INSERT INTO jinmemo_gateway_attempts(id,order_id,provider,mode,amount,config_version,config,expires_at)VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[token,row.id,input.provider,c.mode,row.snapshot.total,c.version,JSON.stringify(snapshot),new Date(Date.now()+15*60000)]);attempt=(await client.query('SELECT * FROM jinmemo_gateway_attempts WHERE id=$1',[token])).rows[0];}
  await client.query('COMMIT');const amount=Number(attempt.amount);
  if(input.provider==='PAYPAL')return this.paypal.create(attempt,input.code);
@@ -74,9 +82,9 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  if(!parsed.success)throw new BadRequestException('Bộ lọc giao dịch không hợp lệ.');
  const input=parsed.data,values:unknown[]=[],where:string[]=[];
  for(const field of ['status','provider','mode']as const)if(input[field]){values.push(input[field]);where.push('e.'+field+'=$'+values.length);}
- if(input.q){values.push(input.q);where.push('(e.id=$'+values.length+' OR o.code=$'+values.length+' OR c.code=$'+values.length+' OR rb.code=$'+values.length+')');}
- const from=' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_ride_payment_events re ON re.event_id=e.id LEFT JOIN jinmemo_ride_bookings rb ON rb.id=re.ride_id LEFT JOIN jinmemo_orders o ON o.id=e.order_id LEFT JOIN jinmemo_cart_orders co ON co.order_id=o.id LEFT JOIN jinmemo_carts c ON c.id=co.cart_id'+(where.length?' WHERE '+where.join(' AND '):''),count=Number((await this.db.pool.query('SELECT COUNT(*) AS total'+from,values)).rows[0].total),page=Math.min(input.page,Math.max(1,Math.ceil(count/25)));
- const data=(await this.db.pool.query('SELECT e.id,e.order_id,rb.id AS ride_id,COALESCE(o.code,rb.code) AS order_code,c.code AS cart_code,e.provider,e.mode,e.amount,e.status,e.reason,e.created_at,a.config->>\'usdCents\' AS usd_cents,a.config->>\'paypalRate\' AS exchange_rate'+from.replace(' FROM jinmemo_gateway_events e',' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_gateway_attempts a ON a.id=e.attempt_id')+' ORDER BY e.created_at DESC,e.id DESC LIMIT 25 OFFSET $'+(values.length+1),[...values,(page-1)*25])).rows;
+ if(input.q){values.push(input.q);where.push('(e.id=$'+values.length+' OR o.code=$'+values.length+' OR c.code=$'+values.length+' OR rb.code=$'+values.length+' OR b.code=$'+values.length+' OR resolved_bundle.code=$'+values.length+')');}
+ const from=' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_ride_payment_events re ON re.event_id=e.id LEFT JOIN jinmemo_ride_bookings rb ON rb.id=re.ride_id LEFT JOIN jinmemo_gateway_attempts ba ON ba.id=e.attempt_id LEFT JOIN jinmemo_gateway_resolutions br ON br.event_id=e.id LEFT JOIN jinmemo_checkout_bundles b ON b.id::text=ba.config->>\'bundleId\' LEFT JOIN jinmemo_checkout_bundles resolved_bundle ON resolved_bundle.code=br.target_code LEFT JOIN jinmemo_orders o ON o.id=e.order_id LEFT JOIN jinmemo_cart_orders co ON co.order_id=o.id LEFT JOIN jinmemo_carts c ON c.id=co.cart_id'+(where.length?' WHERE '+where.join(' AND '):''),count=Number((await this.db.pool.query('SELECT COUNT(*) AS total'+from,values)).rows[0].total),page=Math.min(input.page,Math.max(1,Math.ceil(count/25)));
+ const data=(await this.db.pool.query('SELECT e.id,e.order_id,rb.id AS ride_id,COALESCE(b.code,resolved_bundle.code,o.code,rb.code) AS order_code,c.code AS cart_code,e.provider,e.mode,e.amount,e.status,e.reason,e.created_at,a.config->>\'usdCents\' AS usd_cents,a.config->>\'paypalRate\' AS exchange_rate'+from.replace(' FROM jinmemo_gateway_events e',' FROM jinmemo_gateway_events e LEFT JOIN jinmemo_gateway_attempts a ON a.id=e.attempt_id')+' ORDER BY e.created_at DESC,e.id DESC LIMIT 25 OFFSET $'+(values.length+1),[...values,(page-1)*25])).rows;
  return{data,total:count,page,pageSize:25};
  }
 
@@ -87,11 +95,13 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  const claim=await client.query('INSERT INTO jinmemo_gateway_events(id,provider,mode,amount,status,reason,fingerprint)VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING RETURNING id',[id,provider,mode,amount,'REVIEW','Đang xử lý',fingerprint]);
  if(!claim.rowCount){const prior=(await client.query('SELECT status,fingerprint FROM jinmemo_gateway_events WHERE id=$1',[id])).rows[0];if(!prior||prior.fingerprint!==fingerprint)throw new ConflictException('Giao dịch đã được nhận với dữ liệu khác.');await client.query('COMMIT');return{duplicate:true,status:prior.status};}
  const attempt=attemptId?(await client.query('SELECT * FROM jinmemo_gateway_attempts WHERE id=$1',[attemptId])).rows[0]:null;
- const cart=attempt?.config.cartId?(await client.query('SELECT * FROM jinmemo_carts WHERE id=$1 FOR UPDATE',[attempt.config.cartId])).rows[0]:null;
- const targets:{id:string;amount:number}[]=attempt?.config.cartOrders|| (attempt?[{id:attempt.order_id,amount:Number(attempt.amount)}]:[]);
+ const mixed=attempt?.config.bundleId?await this.bundles.locked(client,attempt.config.bundleId):null;
+ if(mixed?.reason)reason=reason||mixed.reason;
+ const cart=mixed?.cart||(attempt?.config.cartId?(await client.query('SELECT * FROM jinmemo_carts WHERE id=$1 FOR UPDATE',[attempt.config.cartId])).rows[0]:null);
+ const targets:{id:string;amount:number}[]=mixed?mixed.orders.map(r=>({id:r.id,amount:r.snapshot.total})):attempt?.config.cartOrders|| (attempt?[{id:attempt.order_id,amount:Number(attempt.amount)}]:[]);
  const orders=targets.length?(await client.query('SELECT * FROM jinmemo_orders WHERE id IN ('+targets.map((_,i)=>'$'+(i+1)).join(',')+') ORDER BY id FOR UPDATE',targets.map(t=>t.id))).rows:[];
- const order=orders.find(r=>r.id===attempt?.order_id);
- if(!attempt||attempt.provider!==provider)reason=reason||'Không tìm thấy yêu cầu thanh toán';else if(attempt.mode!==mode)reason='Môi trường giao dịch không khớp';else if(Number(attempt.amount)!==amount||targets.reduce((n,t)=>n+t.amount,0)!==amount||orders.length!==targets.length||orders.some(r=>r.snapshot.total!==targets.find(t=>t.id===r.id)?.amount))reason='Số tiền không khớp';
+ const order=mixed?orders[0]:orders.find(r=>r.id===attempt?.order_id);
+ if(!attempt||attempt.provider!==provider)reason=reason||'Không tìm thấy yêu cầu thanh toán';else if(attempt.mode!==mode)reason='Môi trường giao dịch không khớp';else if(Number(attempt.amount)!==amount||targets.reduce((n,t)=>n+t.amount,0)+(mixed?.ride?.data.total||0)+(mixed?.gift?.data.total||0)!==amount||orders.length!==targets.length||orders.some(r=>r.snapshot.total!==targets.find(t=>t.id===r.id)?.amount))reason='Số tiền không khớp';
  if(attempt&&new Date(attempt.expires_at).getTime()<=Date.now())reason='Yêu cầu thanh toán đã hết hạn; cần đối soát thủ công';
  if(attempt?.config.cartId&&(!cart||cart.channel!==(attempt.config.channel||'WEB')||cart.partner_id!==(attempt.config.partnerId??null)||cart.counter_id!==(attempt.config.counterId??null)))reason='Giỏ không còn hợp lệ';
  for(const row of orders){if(row.booking_status!=='CONFIRMED'||(await client.query('SELECT order_id FROM jinmemo_order_archives WHERE order_id=$1',[row.id])).rowCount)reason='Đơn đã hủy, lưu trữ hoặc chưa xác nhận';else if(row.payment_status!=='UNPAID')reason='Đơn đã được thu tiền hoặc ghi công nợ';}
@@ -104,7 +114,8 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  if(!reason&&(await client.query('SELECT reference FROM jinmemo_payment_references WHERE reference=$1',[reference])).rowCount)reason='Mã giao dịch đã được ghi trong sổ thu khác';
  for(const row of orders)if(!reason&&(await client.query('SELECT reference FROM jinmemo_order_payments WHERE reference=$1',[cart?reference+'#'+row.code:reference])).rowCount)reason='Mã thu của phần đơn đã được dùng';
  const status=reason?'REVIEW':mode==='TEST'?'TEST':'PAID';
- if(status==='PAID'){
+ if(status==='PAID'&&mixed)await this.bundles.credit(client,mixed,reference,'gateway:'+provider);
+ if(status==='PAID'&&!mixed){
    for(const row of orders)await this.shifts.lockCounterForOrder(client,row.id);
    await client.query('INSERT INTO jinmemo_payment_references(reference,kind,entity_id,amount)VALUES($1,$2,$3,$4)',[reference,cart?'CART_PAYMENT':'ORDER_PAYMENT',cart?.id||order.id,amount]);
    for(const row of orders){const paymentId=randomUUID(),childReference=cart?reference+'#'+row.code:reference;
@@ -113,7 +124,7 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
    }
    if(cart){await client.query('UPDATE jinmemo_carts SET version=version+1 WHERE id=$1',[cart.id]);await this.mail.enqueue(client,order.id,'CART_PAY',order.version+1);}
  }
- if(attempt)await client.query('UPDATE jinmemo_gateway_attempts SET status=$1 WHERE id=$2',[status,attempt.id]);await client.query('UPDATE jinmemo_gateway_events SET attempt_id=$1,order_id=$2,status=$3,reason=$4 WHERE id=$5',[attempt?.id||null,order?.id||null,status,reason,id]);await client.query('COMMIT');return{duplicate:false,status};
+ if(attempt)await client.query('UPDATE jinmemo_gateway_attempts SET status=$1 WHERE id=$2 AND status<>\'PAID\'',[status,attempt.id]);await client.query('UPDATE jinmemo_gateway_events SET attempt_id=$1,order_id=$2,status=$3,reason=$4 WHERE id=$5',[attempt?.id||null,order?.id||null,status,reason,id]);await client.query('COMMIT');return{duplicate:false,status};
  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}}
  private async settlePaypal(proof:Awaited<ReturnType<PaypalGateway['complete']>>){
  if(!proof)return{status:'PENDING'};const{attempt,external,reason,usd,currency,captureId,orderId}=proof;

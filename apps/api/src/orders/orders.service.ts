@@ -127,6 +127,7 @@ export class OrdersService {
       const result = await client.query('SELECT * FROM jinmemo_orders WHERE id=$1 FOR UPDATE', [id]);
       if (!result.rowCount) throw new NotFoundException('Không tìm thấy đơn.');
       const row = result.rows[0] as OrderRow;
+      if(action.action==='PAY'&&(await client.query('SELECT m.bundle_id FROM jinmemo_cart_orders c JOIN jinmemo_checkout_members m ON m.entity_id=c.cart_id WHERE c.order_id=$1 AND m.kind=$2',[id,'cartId'])).rowCount)throw new ConflictException('Đơn thuộc thanh toán chung. Ghi thu toàn bộ tại mục Đơn thanh toán chung.');
       if(action.action==='PAY')await this.shifts.lockCounterForOrder(client,id);
       if(staffId){const pos=await client.query('SELECT counter_id FROM jinmemo_pos_orders WHERE order_id=$1',[id]);const permission=action.action==='PAY'?'COLLECT':action.action==='DELIVER'?'DELIVER':action.action==='CANCEL'?'CANCEL':null;if(!permission||!pos.rowCount)throw new ForbiddenException('Không được xử lý đơn này tại quầy.');await this.checkPosStaff(client,staffId,pos.rows[0].counter_id,permission);}
       const owner=await client.query('SELECT partner_id FROM jinmemo_partner_orders WHERE order_id=$1',[id]);

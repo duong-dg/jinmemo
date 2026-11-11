@@ -1,4 +1,5 @@
 import{BadGatewayException,BadRequestException,ConflictException,Injectable,NotFoundException,UnauthorizedException}from'@nestjs/common';
+import {BundlePayments} from './bundle-payments';
 import{DatabaseService}from'../database/database.module';
 import{MailService}from'../mail/mail.module';
 import{PaymentSettings}from'./settings';
@@ -16,7 +17,7 @@ type CaptureTarget={id:string;amount:number};
 type Settlement={attempt:Attempt;external:string;reason:string;usd:string;currency:string;captureId:string;orderId:string};
 
 @Injectable()export class PaypalGateway{
- constructor(private readonly db:DatabaseService,private readonly mail:MailService,private readonly settings:PaymentSettings){}
+ constructor(private readonly db:DatabaseService,private readonly mail:MailService,private readonly settings:PaymentSettings,private readonly bundles:BundlePayments){}
  private host(mode:string){return mode==='LIVE'?'https://api-m.paypal.com':'https://api-m.sandbox.paypal.com';}
  private async json(url:string,init:RequestInit){
   try{const r=await fetch(url,{...init,redirect:'error',signal:AbortSignal.timeout(15000)});const text=await r.text();if(text.length>1000000)throw new Error('size');let data;try{data=JSON.parse(text);}catch{throw new Error('json');}if(!r.ok)throw new BadGatewayException('PayPal chưa xử lý được yêu cầu. Kiểm tra cấu hình hoặc thử lại; không thanh toán thêm nếu đã trả tiền.');return data;}
@@ -53,7 +54,8 @@ type Settlement={attempt:Attempt;external:string;reason:string;usd:string;curren
   if(!validOrder()&&order.status!=='COMPLETED')throw new ConflictException('Đơn PayPal không khớp số tiền hoặc mã JinMemo.');
   if(allowCapture&&order.status==='APPROVED'){
    const current=await this.settings.config();if(!current.paypalEnabled||current.mode!==a.mode||current.paypalClientId!==c.paypalClientId||current.paypalEncrypted!==c.paypalEncrypted||new Date(a.expires_at).getTime()<=Date.now())throw new ConflictException('Yêu cầu PayPal đã hết hạn hoặc cấu hình thay đổi. Chưa thu thêm tiền.');
-   const targets:CaptureTarget[]=c.cartOrders||[{id:a.order_id,amount:Number(a.amount)}];
+   if(c.bundleId)await this.bundles.assertPayable(c.bundleId);
+   const targets:CaptureTarget[]=c.bundleId?[]:c.cartOrders||[{id:a.order_id,amount:Number(a.amount)}];
    for(const target of targets){const row=(await this.db.pool.query('SELECT booking_status,payment_status,snapshot FROM jinmemo_orders WHERE id=$1',[target.id])).rows[0];if(!row||row.booking_status!=='CONFIRMED'||row.payment_status!=='UNPAID'||row.snapshot.total!==target.amount||(await this.db.pool.query('SELECT order_id FROM jinmemo_order_archives WHERE order_id=$1',[target.id])).rowCount)throw new ConflictException('Đơn không còn đủ điều kiện thu tiền PayPal.');}
    // Stable request ID and a fresh GET after uncertain responses make retries safe.
    try{await this.api(a.mode,token,'/v2/checkout/orders/'+orderId+'/capture',{},a.id+'-capture');}catch(e){order=await this.api(a.mode,token,'/v2/checkout/orders/'+orderId);if(order.status!=='COMPLETED')throw e;}

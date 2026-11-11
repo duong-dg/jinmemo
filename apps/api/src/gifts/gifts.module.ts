@@ -1,4 +1,4 @@
-import {BadRequestException,Body,ConflictException,Controller,ForbiddenException,Get,Injectable,Module,NotFoundException,Param,Post,Req,Res,UseGuards} from '@nestjs/common';
+import {BadRequestException,Body,ConflictException,Controller,ForbiddenException,Get,Injectable,Module,NotFoundException,Param,Post,Query,Req,Res,UseGuards} from '@nestjs/common';
 import {randomUUID,createHash} from 'node:crypto';
 import type {Request,Response} from 'express';
 import {z} from 'zod';
@@ -6,7 +6,7 @@ import {AdminGuard,AuthModule} from '../admin/auth.module';
 import {DatabaseService} from '../database/database.module';
 import {RequestLimit} from '../http/request-limit';
 
-const item=z.object({id:z.uuid(),name:z.string().trim().min(1).max(150),description:z.string().max(2000),imageId:z.uuid().optional(),price:z.number().int().positive().max(100000000),stock:z.number().int().min(0),active:z.boolean()}).strict();
+const item=z.object({id:z.uuid(),name:z.string().trim().min(1).max(150),description:z.string().max(2000),nameEn:z.string().trim().max(150).optional(),descriptionEn:z.string().max(2000).optional(),imageId:z.uuid().optional(),price:z.number().int().positive().max(100000000),stock:z.number().int().min(0),active:z.boolean()}).strict();
 const settings=z.object({version:z.number().int().nonnegative(),enabled:z.boolean(),shippingFee:z.number().int().min(0).max(10000000),items:z.array(item).max(200)}).strict();
 const order=z.object({
  requestId:z.uuid(), fulfillment:z.enum(['PICKUP','DELIVERY']),expectedTotal:z.number().int().positive(),
@@ -30,11 +30,11 @@ class GiftsService{
  }
  private async pickupCounters(client:Pick<DatabaseService['pool'],'query'>=this.db.pool){
   const {rows}=await client.query('SELECT id,data FROM jinmemo_counters ORDER BY id');
-  return rows.filter(row=>row.data.status==='ACTIVE'&&typeof row.data.address==='string'&&row.data.address.trim()).map(row=>({id:row.id,name:row.data.name,address:row.data.address}));
+  return rows.filter(row=>row.data.status==='ACTIVE'&&typeof row.data.address==='string'&&row.data.address.trim()).map(row=>({id:row.id,name:row.data.name,address:row.data.address,nameEn:row.data.nameEn,addressEn:row.data.addressEn}));
  }
- async catalog(){
+ async catalog(lang?:string){
   const config=await this.config();
-  return {enabled:config.enabled,pickupCounters:config.enabled?await this.pickupCounters():[],shippingFee:config.shippingFee,items:config.enabled?config.items.filter(x=>x.active):[]};
+  return {enabled:config.enabled,pickupCounters:config.enabled?await this.pickupCounters():[],shippingFee:config.shippingFee,items:config.enabled?config.items.filter(x=>x.active).map(x=>lang==='en'?{...x,name:x.nameEn||x.name,description:x.descriptionEn||x.description}:x):[]};
  }
  async save(body:unknown){
   const {version,...data}=parse(settings,body);
@@ -125,7 +125,7 @@ class GiftsService{
 class GiftsController{
  private readonly limit=new RequestLimit();
  constructor(private readonly gifts:GiftsService){}
- @Get()async catalog(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return {data:await this.gifts.catalog()};}
+ @Get()async catalog(@Query('lang')lang:string|undefined,@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return {data:await this.gifts.catalog(lang)};}
  @Post()create(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){
   this.limit.check(req,res,'gift-order',10);
   if(req.headers['x-jinmemo-gifts']!=='1'||req.headers.origin!==new URL(process.env.PUBLIC_BASE_URL||'http://localhost:3000').origin)throw new ForbiddenException('Nguồn yêu cầu không hợp lệ.');

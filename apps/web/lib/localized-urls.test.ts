@@ -8,3 +8,10 @@ test('localized blog/destination sections, English filters and per-entity langua
 test("custom page and contact URL sections",()=>{assert.equal(localizedPath("/lien-he","en"),"/en/contact");assert.equal(localizedPath("/trang/chinh-sach","en"),"/en/pages/chinh-sach");assert.equal(unlocalizedPath("/en/pages/privacy"),"/trang/privacy");assert.equal(unlocalizedPath("/en/contact"),"/lien-he");});
 
 test('transfer listings preserve both language directions',()=>{assert.equal(localizedPath('/dat-xe','en'),'/en/transfers');assert.equal(unlocalizedPath('/en/transfers'),'/dat-xe');assert.equal(localizedPath('/en/transfers','vi'),'/dat-xe');});
+
+test('souvenir and mixed checkout navigation preserves locale and query',()=>{
+ assert.equal(localizedPath('/qua-luu-niem?gio=1','en'),'/en/souvenirs?gio=1');
+ assert.equal(unlocalizedPath('/en/souvenirs'),'/qua-luu-niem');
+ assert.equal(localizedPath('/chot-don','en'),'/en/checkout');
+ assert.equal(localizedPath('/en/checkout','vi'),'/chot-don');
+});

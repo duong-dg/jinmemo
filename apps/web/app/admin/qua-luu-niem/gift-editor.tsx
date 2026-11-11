@@ -17,13 +17,13 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
  const search=areaSearchText(query);
  const visibleItems=config?.items.filter(row=>areaSearchText(row.name+' '+row.description).includes(search))||[];
  function openEditor(){setError('');setNotice('');setEditing(true);dialog.current?.showModal();}
- const [draft,setDraft]=useState({id:'',name:'',description:'',price:'',stock:'',imageId:undefined as string|undefined,active:false});
+ const [draft,setDraft]=useState({id:'',name:'',description:'',nameEn:'',descriptionEn:'',price:'',stock:'',imageId:undefined as string|undefined,active:false});
  const [shippingFee,setShippingFee]=useState(''),[enabled,setEnabled]=useState(false);
  const product= draft.id ? config?.items.find(item=>item.id===draft.id) : undefined;
  const valid=!!draft.name.trim()&&draft.price!==''&&draft.stock!==''&&Number.isInteger(Number(draft.price))&&Number(draft.price)>0&&Number(draft.price)<=100000000&&Number.isSafeInteger(Number(draft.stock))&&Number(draft.stock)>=0;
  const item={...draft,name:draft.name.trim(),price:Number(draft.price),stock:Number(draft.stock)};
- const dirty=!product||(['name','description','price','stock','active','imageId'] as const).some(key=>product[key]!==item[key]);
- function reset(){setDraft({id:'',name:'',description:'',price:'',stock:'',imageId:undefined,active:false});}
+ const dirty=!product||(['name','description','nameEn','descriptionEn','price','stock','active','imageId'] as const).some(key=>product[key]!==item[key]);
+ function reset(){setDraft({id:'',name:'',description:'',nameEn:'',descriptionEn:'',price:'',stock:'',imageId:undefined,active:false});}
  async function run(action:()=>Promise<void>){
   setBusy(true);setError('');setNotice('');
   try{await action();}catch(e){setError((e as Error).message);}finally{setBusy(false);}
@@ -44,7 +44,7 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
      <tbody>{visibleItems.map(row=><tr key={row.id}>
       <td><strong>{row.name}</strong></td><td>{giftMoney(row.price)}</td><td>{row.stock}</td><td>{row.active?'Đang hiện':'Đang ẩn'}</td>
       <td><button className="outline-button" type="button" aria-label={'Sửa '+row.name} disabled={busy} onClick={()=>{
-       setDraft({...row,price:String(row.price),stock:String(row.stock),imageId:row.imageId});
+       setDraft({...row,nameEn:row.nameEn||'',descriptionEn:row.descriptionEn||'',price:String(row.price),stock:String(row.stock),imageId:row.imageId});
        openEditor();
       }}>Sửa</button>
       <button className="outline-button gift-delete" type="button" aria-label={'Xóa '+row.name} disabled={busy} onClick={()=>{
@@ -74,6 +74,8 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
      </div>
      <div className="field-grid">
       <label>Tên sản phẩm<input required maxLength={150} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label>
+      <label>Tên sản phẩm · English<input maxLength={150} value={draft.nameEn} onChange={e=>setDraft({...draft,nameEn:e.target.value})}/></label>
+      <label>Mô tả · English<textarea maxLength={2000} value={draft.descriptionEn} onChange={e=>setDraft({...draft,descriptionEn:e.target.value})}/></label>
       <label>Giá bán (VND)<input type="number" min={1} max={100000000} required value={draft.price} onChange={e=>setDraft({...draft,price:e.target.value})}/></label>
       <label>Số lượng còn bán<input type="number" min={0} required value={draft.stock} onChange={e=>setDraft({...draft,stock:e.target.value})}/></label>
       <label>Mô tả<textarea maxLength={2000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label>

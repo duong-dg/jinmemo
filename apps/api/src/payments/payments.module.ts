@@ -1,3 +1,4 @@
+import {BundlePayments} from './bundle-payments';
 import {RidePayments} from './ride-payments';
 import{clientAddress}from'../http/client-address';
 import{RequestLimit,requestBudgets}from'../http/request-limit';
@@ -9,9 +10,11 @@ import{Body,Controller,Get,HttpCode,HttpException,ForbiddenException,Logger,Modu
 @Controller('payments')class PublicPaymentsController{
  private readonly logger=new Logger('SePayWebhook');
  private async observe<T>(kind:string,res:Response,work:()=>Promise<T>){const requestId=randomUUID(),start=Date.now();res.setHeader('Cache-Control','no-store');res.setHeader('X-JinMemo-Webhook-Request',requestId);try{const result=await work();this.logger.log(JSON.stringify({kind,requestId,status:200,durationMs:Date.now()-start}));return result;}catch(error){const status=error instanceof HttpException?error.getStatus():500;this.logger.warn(JSON.stringify({kind,requestId,status,durationMs:Date.now()-start,code:status===401?'AUTH_REJECTED':status===400?'INVALID_PAYLOAD_OR_GRANT':status===409?'TRANSACTION_CONFLICT':status===429?'RATE_LIMIT':'PROCESSING_FAILED'}));throw error;}}
- private readonly limit=new RequestLimit();constructor(private readonly service:PaymentsService){}
+ private readonly limit=new RequestLimit();constructor(private readonly service:PaymentsService,private readonly bundles:BundlePayments){}
  @Get('options')options(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return this.service.options();}
  @Post('checkout')checkout(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.limit.check(req,res,'checkout',requestBudgets.checkout);if(req.headers['x-jinmemo-request']!=='1'||req.headers.origin&&req.headers.origin!==new URL(process.env.PUBLIC_BASE_URL||'http://localhost:3000').origin)throw new ForbiddenException('Invalid payment request origin');res.setHeader('Cache-Control','private, no-store');return this.service.checkout(body,clientAddress(req).ip);}
+ @Post('bundles')bundle(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.limit.check(req,res,'bundle-create',10);if(req.headers['x-jinmemo-request']!=='1'||req.headers.origin!==new URL(process.env.PUBLIC_BASE_URL||'http://localhost:3000').origin)throw new ForbiddenException('Invalid payment request origin');res.setHeader('Cache-Control','private, no-store');return this.bundles.create(body);}
+ @Post('bundles/lookup')bundleLookup(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.limit.check(req,res,'bundle-lookup',60);res.setHeader('Cache-Control','private, no-store');return this.bundles.lookup(body);}
  @Get('vnpay/ipn')ipn(@Query()query:unknown,@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return this.service.vnpay(query);}
  @Get('vnpay/return')returned(@Res()res:Response){res.setHeader('Cache-Control','no-store');res.redirect(new URL('/tra-cuu?gateway=return',process.env.PUBLIC_BASE_URL||'http://localhost:3000').toString());}
  @Post('paypal/capture')@HttpCode(200)paypalCapture(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.limit.check(req,res,'capture',requestBudgets.capture);if(req.headers['x-jinmemo-request']!=='1'||req.headers.origin&&req.headers.origin!==new URL(process.env.PUBLIC_BASE_URL||'http://localhost:3000').origin)throw new ForbiddenException('Invalid payment request origin');res.setHeader('Cache-Control','private, no-store');return this.service.paypalCapture(body);}
@@ -22,7 +25,9 @@ import{Body,Controller,Get,HttpCode,HttpException,ForbiddenException,Logger,Modu
  @Post('sepay/webhook')@HttpCode(200)webhook(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){return this.observe('bank-webhook',res,()=>this.service.sepay(body,req.headers.authorization||'',{raw:(req as Request&{rawBody?:Buffer}).rawBody,timestamp:String(req.headers['x-sepay-timestamp']||''),signature:String(req.headers['x-sepay-signature']||'')}));}
 }
 @Controller('admin/payments')@UseGuards(AdminGuard)class AdminPaymentsController{
- constructor(private readonly settings:PaymentSettings,private readonly service:PaymentsService,private readonly reconciliation:PaymentReconciliation){}
+ constructor(private readonly settings:PaymentSettings,private readonly service:PaymentsService,private readonly reconciliation:PaymentReconciliation,private readonly bundles:BundlePayments){}
+ @Get('bundles')bundlesList(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return this.bundles.list();}
+ @Post('bundles/collect')bundleCollect(@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return this.bundles.collect(body,req.admin.id);}
  @Get()view(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return this.settings.view();}
  @Post()save(@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return this.settings.save(body,req.admin.id);}
  @Post('reconciliation/preview')preview(@Body()body:unknown,@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return this.reconciliation.preview(body);}
@@ -39,4 +44,4 @@ import{Body,Controller,Get,HttpCode,HttpException,ForbiddenException,Logger,Modu
  constructor(private readonly service:PaymentsService,private readonly auth:PosAuthService){}
  @Post('checkout')async checkout(@Body()body:unknown,@Req()req:Request,@Res({passthrough:true})res:Response){this.auth.checkMutation(req);res.setHeader('Cache-Control','private, no-store');return this.service.checkout(body,clientAddress(req).ip,false,{channel:'POS',actor:await this.auth.require(req)});}
 }
-@Module({imports:[AuthModule,MailModule,ShiftsModule,PartnersModule,PosModule],controllers:[PublicPaymentsController,AdminPaymentsController,PartnerPaymentsController,PosPaymentsController],exports:[RidePayments],providers:[RidePayments,PaypalGateway,PaymentSettings,PaymentsService,PaymentReconciliation]})export class PaymentsModule{}
+@Module({imports:[AuthModule,MailModule,ShiftsModule,PartnersModule,PosModule],controllers:[PublicPaymentsController,AdminPaymentsController,PartnerPaymentsController,PosPaymentsController],exports:[RidePayments],providers:[BundlePayments,RidePayments,PaypalGateway,PaymentSettings,PaymentsService,PaymentReconciliation]})export class PaymentsModule{}

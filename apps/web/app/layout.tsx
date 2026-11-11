@@ -28,7 +28,7 @@ export default async function RootLayout({ children }: {
 }) {
     const locale = await requestLocale(), t = translator(locale);let pageLinks:PageNav[]=[];try{pageLinks=await contentApi<PageNav[]>('site/navigation',locale);}catch{}const menuLinks=pageLinks.filter(p=>p.menu),contactLink=menuLinks.find(p=>p.href===localizedPath('/lien-he',locale)),infoLinks=menuLinks.filter(p=>p!==contactLink);
     const [seo,gifts]=await Promise.all([loadSiteSeo(),contentApi<{enabled:boolean}>('gifts',locale).catch(()=>null)]);
-    const giftLink=gifts?.enabled?{href:'/qua-luu-niem',label:locale==='en'?'Souvenirs':'Quà lưu niệm'}:null;
+    const giftLink=gifts?.enabled?{href:localizedPath('/qua-luu-niem',locale),label:locale==='en'?'Souvenirs':'Quà lưu niệm'}:null;
     const analyticsId=seo.analyticsEnabled&&/^G-[A-Z0-9]+$/.test(seo.analyticsId||'')?seo.analyticsId:undefined;
     return <html lang={locale} data-scroll-behavior="smooth"><body><LocaleContext value={locale}>
     {analyticsId&&<GoogleAnalytics key={analyticsId} id={analyticsId}/>}<PublicMotion/><SkipLink /><CartDrawer/>
