@@ -45,6 +45,7 @@ test('one mixed payment covers every combination, preserves component totals, au
    assert.deepEqual(await service.create(input),bundle,'same request is idempotent');
    assert.equal((await call('/payments/bundles/lookup',{code:bundle.code,accessKey:'0'.repeat(64)})).status,404);
    if(input.tickets){const ticketLookup=await(await call('/carts/lookup',input.tickets)).json();assert.equal(ticketLookup.onlinePaymentEligible,false);assert.equal(ticketLookup.combinedPayment.code,bundle.code);assert.equal(ticketLookup.combinedPayment.accessKey,input.accessKey);}
+   if(input.gifts){const giftList=await(await call('/admin/gifts',undefined,true)).json();const gift=giftList.data.find((row:any)=>row.id===giftOrderId);assert.equal(gift.bundle_code,bundle.code,'admin can open the aggregate before payment');assert.notEqual(gift.data.paymentStatus,'PAID');}
    const checkout={code:bundle.code,accessKey:input.accessKey,provider:mask===7?'VNPAY':'SEPAY'};
    response=await call('/payments/checkout',checkout);assert.equal(response.status,201,await response.clone().text());const intent=await response.json();assert.equal(intent.amount,input.expectedTotal);
    if(mask===7){const q={vnp_TxnRef:intent.id,vnp_TmnCode:'BUNDLE01',vnp_Amount:String(intent.amount*100),vnp_ResponseCode:'00',vnp_TransactionStatus:'00',vnp_TransactionNo:'888777'};const url='/payments/vnpay/ipn?'+new URLSearchParams({...q,vnp_SecureHash:vnpSign(q,vnSecret)});assert.equal((await(await call(url)).json()).RspCode,'00');assert.equal((await(await call(url)).json()).RspCode,'02');}

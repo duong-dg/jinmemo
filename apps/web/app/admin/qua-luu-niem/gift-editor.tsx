@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
+import {GiftOrders,type GiftOrder} from './gift-orders';
 import {adminApi} from '../shared/admin-api';
 import {ImageField} from '../shared/media-picker';
 import {areaSearchText} from '../../../lib/ride-area-search';
@@ -7,8 +8,6 @@ import './gift-admin.css';
 import {giftMoney,type GiftConfig} from '../../qua-luu-niem/shop';
 
 type Config=GiftConfig&{version:number};
-type GiftOrder={id:string;code:string;status:string;data:{name:string;phone:string;address:string;pickupCounterName?:string;fulfillment:string;total:number;shippingFee:number;lines:{id:string;name:string;quantity:number}[]}};
-const labels:Record<string,string>={PENDING:'Chờ xử lý',SHIPPING:'Đang giao',COMPLETED:'Đã giao / nhận',CANCELLED:'Đã hủy'};
 export function GiftEditor({view='products'}:{view?:'products'|'orders'|'settings'}){
  const [config,setConfig]=useState<Config>(),[orders,setOrders]=useState<GiftOrder[]>([]);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -101,20 +100,9 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
     <button className="button" disabled={!shippingFee.trim()||!Number.isInteger(Number(shippingFee))||Number(shippingFee)<0||Number(shippingFee)>10000000||enabled===config.enabled&&Number(shippingFee)===config.shippingFee}>Lưu thiết lập</button>
    </fieldset>
   </form>}
-  {view==='orders'&&<><h2>Đơn bán quà lưu niệm</h2>
-  {!orders.length&&<p>Chưa có đơn.</p>}
-  {orders.map(order=><details key={order.id} className="config-card">
-   <summary>{order.code} · {order.data.name} · {giftMoney(order.data.total)} · {labels[order.status]}</summary>
-   <p>{order.data.phone} · {order.data.fulfillment==='DELIVERY'?'Giao hàng trong Việt Nam':'Nhận tại quầy'}</p>
-   {order.data.address&&<p>{order.data.pickupCounterName&&order.data.pickupCounterName+' · '}{order.data.address}</p>}
-   <ul>{order.data.lines.map(line=><li key={line.id}>{line.name} × {line.quantity}</li>)}</ul>
-   <p>Phí giao {giftMoney(order.data.shippingFee)}</p>
-   {!['COMPLETED','CANCELLED'].includes(order.status)&&<div className="transport-toolbar">
-    {(order.data.fulfillment==='DELIVERY'&&order.status==='PENDING'?['SHIPPING','COMPLETED','CANCELLED']:['COMPLETED','CANCELLED']).map(status=><button key={status} type="button" className="outline-button" disabled={busy} onClick={()=>{
-     if(!window.confirm('Chuyển đơn '+order.code+' sang '+labels[status]+'?'))return;
-     void run(async()=>{await adminApi('gifts/orders/'+order.id,{status});const data=await adminApi('gifts');setOrders(data.data);if(status==='CANCELLED')setNotice('Đã hủy và trả hàng về kho.');});
-    }}>{labels[status]}</button>)}
-   </div>}
-  </details>)}</>}
+  {view==='orders'&&<GiftOrders orders={orders} busy={busy} onRefresh={()=>void run(load)} onUpdate={(order,status)=>{
+   if(!window.confirm(status==='CANCELLED'&&order.data.paymentStatus==='PAID'?'Đơn '+order.code+' đã thu tiền. Hủy sẽ trả hàng về kho nhưng không tự hoàn tiền. Tiếp tục?':'Cập nhật đơn '+order.code+' sang '+({SHIPPING:'Đang giao',COMPLETED:'Đã giao / nhận',CANCELLED:'Đã hủy'}[status])+'?'))return;
+   void run(async()=>{await adminApi('gifts/orders/'+order.id,{status});await load();setNotice(status==='CANCELLED'?'Đã hủy và trả hàng về kho.':'Đã cập nhật đơn '+order.code+'.');});
+  }}/>}
  </section>;
 }

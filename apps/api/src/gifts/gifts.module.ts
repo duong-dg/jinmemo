@@ -96,7 +96,7 @@ class GiftsService{
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
  }
  async list(){
-  return {data:(await this.db.pool.query('SELECT id,code,status,data,created_at FROM jinmemo_gift_orders ORDER BY created_at DESC LIMIT 100')).rows};
+  return {data:(await this.db.pool.query('SELECT g.id,g.code,g.status,g.data,g.created_at,b.code AS bundle_code FROM jinmemo_gift_orders g LEFT JOIN jinmemo_checkout_members m ON m.entity_id=g.id::text AND m.kind=\'giftId\' LEFT JOIN jinmemo_checkout_bundles b ON b.id=m.bundle_id ORDER BY g.created_at DESC LIMIT 100')).rows};
  }
  async update(id:string,body:unknown){
   const {status}=parse(z.object({status:z.enum(['SHIPPING','COMPLETED','CANCELLED'])}).strict(),body);
