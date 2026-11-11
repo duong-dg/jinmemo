@@ -177,3 +177,7 @@ CREATE TABLE IF NOT EXISTS jinmemo_checkout_members(
  kind text NOT NULL,entity_id text NOT NULL,bundle_id uuid NOT NULL REFERENCES jinmemo_checkout_bundles(id),PRIMARY KEY(kind,entity_id)
 );
 CREATE INDEX IF NOT EXISTS jinmemo_checkout_members_bundle ON jinmemo_checkout_members(bundle_id);
+
+CREATE TABLE IF NOT EXISTS jinmemo_policy_pages(
+ policy_key text PRIMARY KEY,page_id text NOT NULL REFERENCES jinmemo_pages(id)
+);

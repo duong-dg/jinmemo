@@ -1,3 +1,4 @@
+import {seedPolicyPages} from '../content/policy-defaults';
 import{archiveRequestedLegacyRide}from'../transport/legacy-cleanup';
 import {Global,Inject,Injectable,Module,OnModuleDestroy,OnModuleInit} from '@nestjs/common';
 import {Pool} from 'pg';
@@ -25,6 +26,7 @@ export class DatabaseService implements OnModuleInit,OnModuleDestroy {
   await archiveRequestedLegacyRide(this.pool);
     await this.pool.query('INSERT INTO jinmemo_pages(id,slug,data)VALUES($1,$2,$3)ON CONFLICT(id)DO NOTHING',['00000000-0000-4000-8000-000000000001','lien-he',JSON.stringify({id:'00000000-0000-4000-8000-000000000001',slug:'lien-he',kind:'CONTACT',title:'Liên hệ JinMemo',description:'Bạn cần hỗ trợ đặt vé hoặc chuẩn bị cho chuyến đi? JinMemo luôn sẵn sàng đồng hành.',contentHtml:'<h2>Chúng tôi có thể giúp gì cho bạn?</h2><p>Liên hệ JinMemo để được hỗ trợ chọn vé, kiểm tra thông tin đặt chỗ và nhận hướng dẫn sử dụng vé.</p><p>Khi cần hỗ trợ một đơn đã đặt, hãy chuẩn bị mã đặt chỗ và email đặt vé để chúng tôi kiểm tra nhanh hơn.</p>',seoTitle:'Liên hệ & hỗ trợ khách hàng JinMemo',seoDescription:'Liên hệ JinMemo để được hỗ trợ đặt vé tham quan, show diễn, tour địa phương và kiểm tra thông tin đơn hàng.',menuLabel:'Liên hệ',status:'PUBLISHED',showInMenu:true,showInFooter:true,sortOrder:100,cover:null,contact:{phone:'',email:'',address:'',hours:'',mapUrl:''},english:{slug:'contact',title:'Contact JinMemo',description:'Need help booking tickets or planning your visit? We are here to help.',contentHtml:'<h2>How can we help?</h2><p>Contact JinMemo for help choosing tickets, checking booking details and using your tickets.</p><p>For an existing booking, have your booking reference and booking email ready so we can help you faster.</p>',seoTitle:'Contact & customer support | JinMemo',seoDescription:'Contact JinMemo for help with attraction tickets, shows, local tours and booking information.',menuLabel:'Contact',published:true}})]);
 
+  await seedPolicyPages(this.pool);
   const demo=process.env.SEED_DEMO_DATA==='true'||(process.env.SEED_DEMO_DATA===undefined&&process.env.NODE_ENV==='test');
   if(demo&&!(await this.pool.query("SELECT id FROM jinmemo_migrations WHERE id='001_catalog_seed'")).rowCount){
    const client=await this.pool.connect();try{await client.query('BEGIN');

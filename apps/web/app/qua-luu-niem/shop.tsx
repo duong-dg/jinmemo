@@ -1,4 +1,5 @@
 'use client';
+import {PolicyAgreement} from '../components/policy-agreement';
 import {translator,errorText} from '../../lib/i18n';
 import {useLocale} from '../components/locale-context';
 import {useEffect,useRef,useState} from 'react';
@@ -116,6 +117,7 @@ export function GiftShop({catalog,initialCheckout=false}:{catalog:GiftConfig;ini
       <dl className="gift-totals"><div><dt>{t("Tiền hàng")}</dt><dd>{giftMoney(subtotal)}</dd></div><div><dt>{t("Phí giao")}</dt><dd>{giftMoney(fee)}</dd></div><div><dt>{t("Tổng cộng")}</dt><dd>{giftMoney(subtotal+fee)}</dd></div></dl>
       <p>{t("Thanh toán khi nhận hàng")}</p>
       {error&&<p role="alert">{error}</p>}
+      <PolicyAgreement disabled={busy}/>
       <button className="button" disabled={busy||delivery&&!address}>{busy?t('Đang đặt…'):t('Đặt hàng')}</button>
       </section>}
      </>}

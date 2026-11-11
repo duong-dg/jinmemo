@@ -1,0 +1,3 @@
+.policy-agreement{display:flex!important;flex-direction:row!important;align-items:flex-start;justify-content:flex-start;gap:10px;margin:16px 0;font-size:13px!important;font-weight:400!important;line-height:1.65;text-align:left}
+.policy-agreement>input[type=checkbox]{box-sizing:border-box;flex:0 0 18px;width:18px!important;height:18px;min-height:0;padding:0;margin:3px 0 0!important;accent-color:#ed6633}
+.policy-agreement>span{min-width:0}.policy-agreement a{color:#a8431d;text-decoration:underline;text-underline-offset:3px}.policy-agreement small{display:block;margin-top:5px;color:#67766e;font-size:12px;line-height:1.6}
