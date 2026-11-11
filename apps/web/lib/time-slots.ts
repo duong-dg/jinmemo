@@ -5,3 +5,5 @@ export function schedulePeriod(variant:ScheduledVariant,date:string){const day=n
 export function scheduleSlots(variant:ScheduledVariant,date:string){return schedulePeriod(variant,date)?.timeSlots??variant.timeSlots??[];}
 export function allScheduleSlots(variant:ScheduledVariant){return [...new Map([...(variant.timeSlots||[]),...(variant.schedulePeriods||[]).flatMap(p=>p.timeSlots)].map(s=>[s.id,s])).values()];}
 export function scheduleClosureApplies(variant:ScheduledVariant,date:string,closure:{startDate:string;endDate:string;weekdays?:number[]}){const day=new Date(date+'T00:00:00Z').getUTCDay()||7;return closure.startDate<=date&&date<=closure.endDate&&(!closure.weekdays||closure.weekdays.includes(day))&&!(closure.startDate!==closure.endDate&&closure.weekdays?.length&&schedulePeriod(variant,date)?.reopenWeeklyClosures);}
+
+export function updateVariantSchedules<T extends ScheduledVariant&{id:string}>(variants:T[],schedule:ScheduledVariant,variantId?:string):(T&ScheduledVariant)[]{return variants.map(v=>!variantId||v.id===variantId?{...v,timeSlots:schedule.timeSlots||[],schedulePeriods:schedule.schedulePeriods||[]}:v);}
