@@ -181,3 +181,11 @@ CREATE INDEX IF NOT EXISTS jinmemo_checkout_members_bundle ON jinmemo_checkout_m
 CREATE TABLE IF NOT EXISTS jinmemo_policy_pages(
  policy_key text PRIMARY KEY,page_id text NOT NULL REFERENCES jinmemo_pages(id)
 );
+
+CREATE TABLE IF NOT EXISTS jinmemo_refunds(
+ id uuid PRIMARY KEY,root_kind text NOT NULL,root_id text NOT NULL,root_code text NOT NULL,
+ amount bigint NOT NULL CHECK(amount>0),refunded_on text NOT NULL,reference_key text NOT NULL UNIQUE,
+ data jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS jinmemo_refunds_root ON jinmemo_refunds(root_kind,root_id);
+CREATE INDEX IF NOT EXISTS jinmemo_refunds_recent ON jinmemo_refunds(created_at DESC);
