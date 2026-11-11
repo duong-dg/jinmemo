@@ -94,7 +94,7 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
   }}>
    <fieldset className="config-card" disabled={busy}>
     <h2>Thiết lập giao hàng</h2>
-    <label className="checkbox-label"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/> Mở bán quà lưu niệm</label>
+    <p className="admin-hint">Bật/tắt quà lưu niệm tại <a href="/admin/phan-he">Cài đặt → Bật / tắt phân hệ</a>.</p>
     <label>Phí giao mỗi đơn trong Việt Nam (VND)<input type="number" min={0} max={10000000} step={1} required value={shippingFee} onChange={e=>setShippingFee(e.target.value)}/></label>
     <p className="admin-hint">Nhận tại quầy miễn phí.</p>
     <button className="button" disabled={!shippingFee.trim()||!Number.isInteger(Number(shippingFee))||Number(shippingFee)<0||Number(shippingFee)>10000000||enabled===config.enabled&&Number(shippingFee)===config.shippingFee}>Lưu thiết lập</button>

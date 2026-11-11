@@ -1,3 +1,4 @@
+import {FeaturesService} from '../content/features.module';
 import {BadRequestException,Body,ConflictException,Controller,ForbiddenException,Get,Injectable,Module,NotFoundException,Param,Post,Query,Req,Res,UseGuards} from '@nestjs/common';
 import {randomUUID,createHash} from 'node:crypto';
 import type {Request,Response} from 'express';
@@ -23,7 +24,7 @@ function parse<T>(schema:z.ZodType<T>,body:unknown):T{
 
 @Injectable()
 class GiftsService{
- constructor(private readonly db:DatabaseService){}
+ constructor(private readonly db:DatabaseService,private readonly features:FeaturesService){}
  async config(client:Pick<DatabaseService['pool'],'query'>=this.db.pool){
   const row=(await client.query("SELECT data,version FROM jinmemo_settings WHERE id='gifts'")).rows[0];
   return row?settings.parse({...row.data,version:row.version}):initial;
@@ -33,7 +34,7 @@ class GiftsService{
   return rows.filter(row=>row.data.status==='ACTIVE'&&typeof row.data.address==='string'&&row.data.address.trim()).map(row=>({id:row.id,name:row.data.name,address:row.data.address,nameEn:row.data.nameEn,addressEn:row.data.addressEn}));
  }
  async catalog(lang?:string){
-  const config=await this.config();
+  const source=await this.config(),config={...source,enabled:source.enabled&&(await this.features.read()).giftsEnabled};
   return {enabled:config.enabled,pickupCounters:config.enabled?await this.pickupCounters():[],shippingFee:config.shippingFee,items:config.enabled?config.items.filter(x=>x.active).map(x=>lang==='en'?{...x,name:x.nameEn||x.name,description:x.descriptionEn||x.description}:x):[]};
  }
  async save(body:unknown){
@@ -75,7 +76,7 @@ class GiftsService{
     return {code:previous.code,total:previous.data.total};
    }
    const {version,...config}=await this.config(client);
-   if(!config.enabled)throw new ConflictException('Quà lưu niệm chưa mở bán.');
+   if(!config.enabled||!(await this.features.read(client)).giftsEnabled)throw new ConflictException('Quà lưu niệm chưa mở bán.');
    const lines=input.lines.map(line=>{
     const product=config.items.find(x=>x.id===line.id&&x.active);
     if(!product||product.stock<line.quantity)throw new ConflictException('Một món trong giỏ đã hết hàng hoặc không đủ số lượng.');
@@ -91,6 +92,7 @@ class GiftsService{
    const items=config.items.map(x=>({...x,stock:x.stock-(lines.find(line=>line.id===x.id)?.quantity??0)}));
    await client.query("UPDATE jinmemo_settings SET data=$1,version=version+1 WHERE id='gifts'",[JSON.stringify({...config,items})]);
    await client.query('INSERT INTO jinmemo_gift_orders(id,code,data)VALUES($1,$2,$3)',[input.requestId,code,JSON.stringify({...input,address:input.fulfillment==='DELIVERY'?input.address:pickup?.address||'',pickupCounterName:pickup?.name,lines,shippingFee,total,fingerprint})]);
+   await client.query('INSERT INTO jinmemo_admin_notifications(kind,code,href)VALUES($1,$2,$3)',['GIFT',code,'/admin/qua-luu-niem/don-ban?order='+code]);
    await client.query('COMMIT');
    return {code,total};
   }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}

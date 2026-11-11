@@ -4,6 +4,6 @@ export function buildShareMetadata(input:ShareInput,base:string,fallback?:ImageR
 export async function pageShareMetadata(input:ShareInput){return buildShareMetadata(input,siteBase(),input.image?null:(await loadSiteSeo()).image);}
 // Preserve Next's default blocking bot set and include preview agents it does not recognise yet.
 export const shareHtmlBots=/[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|Zalo|TelegramBot|Facebot|meta-externalagent|meta-externalfetcher|Pinterestbot/i;
-export const privateRobotPaths=['/admin','/api/','/dat-ve','/gio-hang','/tra-cuu','/ctv','/quay','/nhan-ve','/en/dat-ve','/en/gio-hang','/en/tra-cuu'];
+export const privateRobotPaths=['/admin','/api/','/dat-ve','/gio-hang','/dat-phong/tra-cuu','/en/stays/booking','/tra-cuu','/ctv','/quay','/nhan-ve','/en/dat-ve','/en/gio-hang','/en/tra-cuu'];
 // Crawl access and search indexing are separate: public metadata still controls noindex.
 export function publicRobotRules(){return{userAgent:'*',allow:['/','/api/v1/media/'],disallow:privateRobotPaths};}

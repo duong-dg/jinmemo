@@ -15,3 +15,5 @@ test('souvenir and mixed checkout navigation preserves locale and query',()=>{
  assert.equal(localizedPath('/chot-don','en'),'/en/checkout');
  assert.equal(localizedPath('/en/checkout','vi'),'/chot-don');
 });
+
+test('stays keep localized listing, room and private receipt URLs',()=>{assert.equal(localizedPath('/dat-phong','en'),'/en/stays');assert.equal(localizedPath('/dat-phong/hotel','en'),'/en/stays/hotel');assert.equal(localizedPath('/dat-phong/tra-cuu','en'),'/en/stays/booking');assert.equal(unlocalizedPath('/en/stays/booking'),'/dat-phong/tra-cuu');});

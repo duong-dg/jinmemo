@@ -189,3 +189,15 @@ CREATE TABLE IF NOT EXISTS jinmemo_refunds(
 );
 CREATE INDEX IF NOT EXISTS jinmemo_refunds_root ON jinmemo_refunds(root_kind,root_id);
 CREATE INDEX IF NOT EXISTS jinmemo_refunds_recent ON jinmemo_refunds(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS jinmemo_stays(id uuid PRIMARY KEY,slug text NOT NULL UNIQUE,data jsonb NOT NULL,version integer NOT NULL DEFAULT 1,updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS jinmemo_stay_aliases(lang text NOT NULL,slug text NOT NULL,hotel_id uuid NOT NULL REFERENCES jinmemo_stays(id),PRIMARY KEY(lang,slug));
+CREATE TABLE IF NOT EXISTS jinmemo_stay_bookings(id uuid PRIMARY KEY,code text NOT NULL UNIQUE,hotel_id uuid NOT NULL REFERENCES jinmemo_stays(id),room_id uuid NOT NULL,check_in text NOT NULL,check_out text NOT NULL,rooms integer NOT NULL CHECK(rooms>0),status text NOT NULL DEFAULT 'PENDING',access_hash text NOT NULL,secret text NOT NULL,request_hash text NOT NULL,data jsonb NOT NULL,expires_at timestamptz,version integer NOT NULL DEFAULT 1,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS jinmemo_stay_dates ON jinmemo_stay_bookings(hotel_id,room_id,check_in,check_out);
+CREATE INDEX IF NOT EXISTS jinmemo_stay_booking_recent ON jinmemo_stay_bookings(created_at DESC);
+CREATE TABLE IF NOT EXISTS jinmemo_stay_vouchers(id uuid PRIMARY KEY,code text NOT NULL UNIQUE,data jsonb NOT NULL,version integer NOT NULL DEFAULT 1);
+CREATE TABLE IF NOT EXISTS jinmemo_stay_mail(id text PRIMARY KEY,booking_id uuid NOT NULL REFERENCES jinmemo_stay_bookings(id),event text NOT NULL,status text NOT NULL DEFAULT 'PENDING',attempts integer NOT NULL DEFAULT 0,next_at timestamptz NOT NULL DEFAULT now(),last_error text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now(),sent_at timestamptz);
+ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_stay_id bigint;
+ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_gift_id bigint;
+
+CREATE TABLE IF NOT EXISTS jinmemo_stay_payment_events(event_id text PRIMARY KEY REFERENCES jinmemo_gateway_events(id),booking_id uuid NOT NULL REFERENCES jinmemo_stay_bookings(id));

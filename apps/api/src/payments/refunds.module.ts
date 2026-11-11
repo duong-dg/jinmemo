@@ -6,7 +6,7 @@ import {z} from 'zod';
 import {DatabaseService} from '../database/database.module';
 import {AdminGuard,AuthModule} from '../admin/auth.module';
 
-const code=z.string().trim().toUpperCase().regex(/^(?:J[MCB][A-F0-9]{10}|JM-[XG][A-F0-9]{12})$/);
+const code=z.string().trim().toUpperCase().regex(/^(?:J[MCBH][A-F0-9]{10}|JM-[XG][A-F0-9]{12})$/);
 const lookup=z.object({code}).strict();
 const record=lookup.extend({requestId:z.uuid(),amount:z.number().int().positive().max(15000000000),recipient:z.string().trim().min(2).max(150),method:z.enum(['BANK','CASH','GATEWAY']),reference:z.string().trim().max(150).default(''),refundedOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),note:z.string().trim().min(5).max(1000),verified:z.literal(true)}).strict().refine(value=>value.method==='CASH'||value.reference.length>=3,'Thêm mã giao dịch hoàn tiền.');
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -19,7 +19,9 @@ export class RefundsService{
  private async target(client:PoolClient,value:string):Promise<Target>{
   await client.query("SELECT id FROM jinmemo_migrations WHERE id='037_cart_requests' FOR UPDATE");
   let kind='',id='',paid=0,payer='',phone='',payeeType:'CUSTOMER'|'PARTNER'='CUSTOMER';
-  if(value.startsWith('JB')){
+  if(value.startsWith('JH')){
+   const row=(await client.query('SELECT * FROM jinmemo_stay_bookings WHERE code=$1 FOR UPDATE',[value])).rows[0];if(!row)throw new NotFoundException('Không tìm thấy đơn phòng.');kind='HOTEL';id=row.id;payer=row.data.contact.name;phone=row.data.contact.phone;paid=Number((await client.query("SELECT COALESCE(SUM(amount),0) AS amount FROM jinmemo_payment_references WHERE entity_id=$1 AND kind='HOTEL_PAYMENT'",[id])).rows[0].amount);
+  }else if(value.startsWith('JB')){
    const row=(await client.query('SELECT * FROM jinmemo_checkout_bundles WHERE code=$1 FOR UPDATE',[value])).rows[0];if(!row)throw new NotFoundException('Không tìm thấy đơn thanh toán chung.');
    kind='BUNDLE';id=row.id;payer=row.data.contact?.name||'';phone=row.data.contact?.phone||'';
    paid=row.status==='PAID'?Number((await client.query("SELECT COALESCE(SUM(amount),0) AS amount FROM jinmemo_payment_references WHERE entity_id=$1 AND kind='BUNDLE_PAYMENT'",[id])).rows[0].amount):0;

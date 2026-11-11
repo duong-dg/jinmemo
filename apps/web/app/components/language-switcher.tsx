@@ -9,12 +9,12 @@ export function LanguageSwitcher(){
  const[open,setOpen]=useState(false),root=useRef<HTMLDivElement>(null),trigger=useRef<HTMLButtonElement>(null),panelId=useId();
  const pathname=usePathname(),locale=useLocale(),path=unlocalizedPath(pathname);
  const[available,setAvailable]=useState<{path:string;languages:string[];paths?:Partial<Record<'vi'|'en',string>>}|null>(null);
- const detail=/^\/(ve|cam-nang|loai|diem-den|trang)\/([^/]+)$/.exec(path);
+ const detail=/^\/(ve|cam-nang|loai|diem-den|trang|dat-phong)\/([^/]+)$/.exec(path==='/dat-phong/tra-cuu'?'':path);
  const contact=path==='/lien-he';
- const supported=contact||['/','/cam-nang','/dat-xe','/dat-ve','/tra-cuu','/gio-hang','/diem-den','/qua-luu-niem','/chot-don'].includes(path)||!!detail;
+ const supported=contact||['/','/cam-nang','/dat-xe','/dat-ve','/tra-cuu','/gio-hang','/diem-den','/qua-luu-niem','/chot-don','/dat-phong','/dat-phong/tra-cuu'].includes(path)||!!detail;
  useEffect(()=>{setOpen(false);},[pathname]);
  useEffect(()=>{if(!open)return;const outside=(event:PointerEvent)=>{if(event.target instanceof Node&&!root.current?.contains(event.target))setOpen(false);};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setOpen(false);trigger.current?.focus();}};document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};},[open]);
- useEffect(()=>{if(!detail&&!contact){setAvailable(null);return;}const controller=new AbortController();setAvailable(null);const section=detail?{trang:'site/pages',ve:'products','cam-nang':'posts',loai:'product-types','diem-den':'destinations'}[detail[1]]:'site';
+ useEffect(()=>{if(!detail&&!contact){setAvailable(null);return;}const controller=new AbortController();setAvailable(null);const section=detail?{'dat-phong':'stays',trang:'site/pages',ve:'products','cam-nang':'posts',loai:'product-types','diem-den':'destinations'}[detail[1]]:'site';
  fetch(`/api/v1/${section}/${contact?'contact':detail![2]}?lang=${locale}`,{signal:controller.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error();return response.json();}).then(result=>setAvailable({path,languages:result.data.languages||['vi'],paths:result.data.localePaths})).catch(()=>{if(!controller.signal.aborted)setAvailable({path,languages:['vi']});});return()=>controller.abort();
  },[path,locale]);
  if(!supported)return null;
