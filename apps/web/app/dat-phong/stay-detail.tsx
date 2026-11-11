@@ -4,7 +4,7 @@ import {DatePicker} from '../components/date-picker';import {ProductGallery} fro
 import {localizedPath,errorText} from '../../lib/i18n';
 import {isOnlinePayment,webPaymentMethods,paymentLabel,manualOptionLabel,manualOptionInstructions,type ManualOption} from '../../lib/payment-methods';
 import {stayMoney,stayDay,stayNextDay,type PublicStay,type StayQuote,type StayChoice} from '../../lib/stays';
-export async function stayApi(path:string,body:unknown){const response=await fetch('/api/v1/stays'+path,{method:'POST',headers:{'Content-Type':'application/json','X-JinMemo-Stay':'1'},body:JSON.stringify(body),cache:'no-store'});const data=await response.json().catch(()=>null);if(!response.ok||!data)throw Object.assign(new Error(data?.message||'Mất kết nối. Vui lòng thử lại.'),{status:response.status});return data;}
+export async function stayApi(path:string,body:unknown){const response=await fetch('/api/v1/stays'+path,{method:'POST',headers:{'Content-Type':'application/json','X-JinMemo-Stay':'1'},body:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(30000)});const data=await response.json().catch(()=>null);if(!response.ok||!data)throw Object.assign(new Error(data?.message||'Mất kết nối. Vui lòng thử lại.'),{status:response.status});return data;}
 function validDay(value?:string){if(!value||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const d=new Date(value+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;}
 export function StayDetail({property:p,initial}:{property:PublicStay;initial:{roomId?:string;checkIn?:string;checkOut?:string;rooms:number;adults:number;children:number}}){
  const locale=useLocale(),en=locale==='en',t=(vi:string,eng:string)=>en?eng:vi;
