@@ -120,7 +120,7 @@ const hash=(s:string)=>createHash('sha256').update(s).digest('hex');
  for(const row of orders)if(!reason&&(await client.query('SELECT reference FROM jinmemo_order_payments WHERE reference=$1',[cart?reference+'#'+row.code:reference])).rowCount)reason='Mã thu của phần đơn đã được dùng';
  const status=reason?'REVIEW':mode==='TEST'?'TEST':'PAID';
  if(status==='PAID'&&mixed)await this.bundles.credit(client,mixed,reference,'gateway:'+provider);
- if(status==='PAID'&&stay){await this.hotels.credit(client,stay,reference,'gateway:'+provider);await client.query('INSERT INTO jinmemo_stay_payment_events(event_id,booking_id)VALUES($1,$2)',[id,stay.row.id]);}
+ if(status==='PAID'&&stay){await this.hotels.credit(client,stay,reference,'gateway:'+provider,provider);await client.query('INSERT INTO jinmemo_stay_payment_events(event_id,booking_id)VALUES($1,$2)',[id,stay.row.id]);}
  if(status==='PAID'&&!mixed&&!stay){
    for(const row of orders)await this.shifts.lockCounterForOrder(client,row.id);
    await client.query('INSERT INTO jinmemo_payment_references(reference,kind,entity_id,amount)VALUES($1,$2,$3,$4)',[reference,cart?'CART_PAYMENT':'ORDER_PAYMENT',cart?.id||order.id,amount]);
