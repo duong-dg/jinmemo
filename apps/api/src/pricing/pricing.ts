@@ -1,5 +1,5 @@
 import {effectiveTourInfo,checkTourGuests} from './tour-info';
-import{checkSchedule}from'./schedule';
+import{checkSchedule,scheduleClosureApplies}from'./schedule';
 import { CustomerType, Product } from '../catalog/catalog.data';
 
 export interface PriceRule {
@@ -38,7 +38,7 @@ export function calculateQuote(
   const timeSlot=checkSchedule(variant,date,slotId,now);
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   if (closures.some((item) => item.productId === product.id && (!item.variantId || item.variantId === variantId)
-    && item.startDate <= date && date <= item.endDate && (!item.weekdays || item.weekdays.includes(weekday)))) throw new Error('Ngày này đã khóa bán.');
+    && scheduleClosureApplies(variant,date,item))) throw new Error('Ngày này đã khóa bán.');
   const entries = Object.entries(quantities).filter(([, quantity]) => quantity !== undefined) as [CustomerType, number][];
   if (!entries.length || entries.every(([, quantity]) => quantity === 0)) throw new Error('Chọn ít nhất một khách.');
   const lines = entries.map(([customerType, quantity]) => {

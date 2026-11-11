@@ -29,7 +29,7 @@ class CatalogController {
       const quote=calculateOnlineQuote(view, variantId, date, quantities, product.rules, product.closures,slotId,Date.now(),false);return{...quote,inventory:await this.inventory.availability(product.id,variantId,date,quote.timeSlot?.id||'')};
     } catch (e) { throw new BadRequestException(e instanceof Error ? e.message : 'Không thể lấy giá.'); }
   }
-  @Get(':id/sale-calendar')async calendar(@Param('id')id:string){const product=await this.catalog.find(id);return{data:{variants:product.variants.map(v=>({id:v.id,saleWindow:v.saleWindow,timeSlots:v.timeSlots})),saleClosures:publicSaleClosures(product)}};}
+  @Get(':id/sale-calendar')async calendar(@Param('id')id:string){const product=await this.catalog.find(id);return{data:{variants:product.variants.map(v=>({id:v.id,saleWindow:v.saleWindow,schedulePeriods:v.schedulePeriods,timeSlots:v.timeSlots})),saleClosures:publicSaleClosures(product)}};}
   @Get(':slug') async detail(@Param('slug') slug: string,@Query('lang')lang?:string) {const product=await this.catalog.find(slug,true);if(lang==='en'&&!translated('PRODUCT',product))throw new NotFoundException('Translation unavailable.');return { data: publicProduct(product,await this.types.list(),lang,await this.destinations.list()) }; }
 }
 @Module({ imports:[MediaModule,TypesModule,DestinationsModule,InventoryModule],controllers: [CatalogController], providers: [CatalogService], exports: [CatalogService] })

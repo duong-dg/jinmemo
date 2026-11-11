@@ -1,4 +1,5 @@
 'use client';
+import type {SchedulePeriod} from '../../lib/time-slots';
 import{UserGuide}from'../components/user-guide';
 import { TicketBasket } from '../components/ticket-basket';
 import { SalesWorkbench } from '../components/sales-workbench';
@@ -6,7 +7,7 @@ import{rememberCart}from'../../lib/ticket-cart';
 import{PartnerTicketFiles}from'./partner-ticket-files';
 import{useEffect,useRef,useState}from'react';import Link from'next/link';
 type Group='ADULT' | 'CHILD' | 'SENIOR' | 'LOCAL_ADULT' | 'LOCAL_CHILD' | 'LOCAL_SENIOR';const labels:Record<string,string>={ADULT:'Người lớn',CHILD:'Trẻ em',SENIOR: 'Người cao tuổi', LOCAL_ADULT: 'Người lớn · Địa phương', LOCAL_CHILD: 'Trẻ em · Địa phương', LOCAL_SENIOR: 'Người cao tuổi · Địa phương'};const money=(n:number)=>n.toLocaleString('vi-VN')+'đ';const statuses:Record<string,string>={REQUESTED:'Chờ xác nhận',CONFIRMED:'Đã đặt vé',CANCELLED:'Đã hủy',PAID:'Đã thu tiền',UNPAID:'Chưa thanh toán',CREDIT:'Đã ghi công nợ'};
-type Product={id:string;name:string;description?:string;destination:string;typeName:string;cover?:{id:string;alt:string};variants:{timeSlots?:{id:string;start:string;end?:string}[];id:string;name:string;customerTypes:Group[];conditions?:Record<string,string>}[]};
+type Product={id:string;name:string;description?:string;destination:string;typeName:string;cover?:{id:string;alt:string};variants:{schedulePeriods?:SchedulePeriod[];timeSlots?:{id:string;start:string;end?:string}[];id:string;name:string;customerTypes:Group[];conditions?:Record<string,string>}[]};
 type Profile={account:{id:string;name:string;email:string;phone:string;status:string;creditEnabled:boolean;creditDays:number};credit:{balance:number;available:number;limit:number;overdue:number;entries:{id:string;kind:string;amount:number|string;reference:string;note:string;created_at:string;due_at:string|null}[]}};
 type Row={id:string;code:string;snapshot:{timeSlot?:{start:string;end?:string;requiresSelection?:boolean};productName:string;variantName:string;date:string;total:number};booking_status:string;payment_status:string};type Detail={cartCode?:string;id:string;code:string;version:number;bookingStatus:string;paymentStatus:string;instructions:string;snapshot:Row['snapshot']&{lines:{customerType:string;quantity:number;unitPrice:number;subtotal:number}[]};tickets:{id:string;code:string;covers:number;note:string;kind:string}[];deliveredGuests:number;totalGuests:number};
 async function partnerApi(path:string,body?:unknown){const res=await fetch('/api/v1/partner/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-JinMemo-Partner':'1'},cache:'no-store',...(body===undefined?{}:{body:JSON.stringify(body)})});const data=await res.json();if(!res.ok)throw Object.assign(new Error(Array.isArray(data.message)?data.message.join('\n'):data.message||'Không xử lý được yêu cầu.'),{status:res.status});return data;}

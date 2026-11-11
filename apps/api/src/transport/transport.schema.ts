@@ -1,3 +1,4 @@
+import {scheduleSlots} from '../pricing/schedule';
 import {z} from 'zod';
 import {BadRequestException} from '@nestjs/common';
 import {validateDate} from '../pricing/pricing';
@@ -16,7 +17,7 @@ export function validateTrip(product:any,variantId:string,date:string,slotId:str
  if(Object.entries(quantities).some(([g,n])=>g!=='ADULT'&&!!n)||units<1)throw new BadRequestException('Xe chỉ tính theo số chuyến hoặc số chỗ.');
  if(config.mode==='PRIVATE'&&(units!==1||info.passengers>(variant.maxPassengers||1)))throw new BadRequestException('Mỗi dòng đặt một xe; số khách không được vượt sức chứa xe.');
  if(config.mode==='SHARED'){
-  const slots=variant.timeSlots||[],slot=slots.find((s:any)=>s.id===slotId)||(slots.length===1?slots[0]:undefined);
+  const slots=scheduleSlots(variant,date),slot=slots.find((s:any)=>s.id===slotId)||(slots.length===1?slots[0]:undefined);
   if(!slot||slot.start!==info.pickupTime||info.passengers!==units)throw new BadRequestException('Số khách xe ghép phải bằng số chỗ; giờ đón phải đúng suất đã chọn.');
  }
  const departure=new Date(date+'T'+info.pickupTime+':00+07:00').getTime();

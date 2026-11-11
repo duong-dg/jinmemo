@@ -1,4 +1,5 @@
 'use client';
+import {scheduleSlots} from '../../../lib/time-slots';
 import {PackageInfo} from './package-info';
 import {effectiveTourInfo} from '../../../lib/tour-info';
 import{saleDayAvailable,nextSaleDay}from'../../../lib/sale-calendar';
@@ -17,8 +18,8 @@ type Product = SaleProduct & { slug: string; demo?: boolean };
 type Rates = { lines: { customerType: string; unitPrice: number;originalUnitPrice?:number }[]; inventory?: InventoryAvailability };
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Ho_Chi_Minh', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
 function PackageOption({ product, variant, date, preferred, accordionName, items, clock, change, updateDraft }: { product: Product; variant: Product['variants'][number]; date: string; preferred: boolean; accordionName: string; items: CartLine[]; clock: number; updateDraft: (id: string, patch: Partial<CartLine>) => void; change: (line: CartLine, group: string, quantity: number, rates: Record<string,number>) => void }) {
-  const en = useLocale() === 'en', [expanded, setExpanded] = useState(preferred), [slotId, setSlotId] = useState(''), [loadedRates, setRates] = useState<{ key: string; data: Rates }|null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(false), slots = variant.timeSlots || [], groups = Object.keys(variant.prices || {}) as SaleGroup[];
-  const slot = slots.length === 1 ? slots[0].id : slotId, identity = { productId:product.id, variantId:variant.id, date, ...(slot ? {slotId:slot} : {}) }, selected = items.find(i => saleIdentity(i) === saleIdentity(identity)), count = Object.values(selected?.quantities || {}).reduce((n,q)=>n+q,0), packageCount = items.filter(i=>i.productId===product.id&&i.variantId===variant.id&&i.date===date).reduce((n,i)=>n+Object.values(i.quantities).reduce((a,b)=>a+b,0),0), hasLocal = groups.some(g=>g.startsWith('LOCAL_'));
+  const en = useLocale() === 'en', [expanded, setExpanded] = useState(preferred), [slotId, setSlotId] = useState(''), [loadedRates, setRates] = useState<{ key: string; data: Rates }|null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(false), slots = scheduleSlots(variant,date), groups = Object.keys(variant.prices || {}) as SaleGroup[];
+  const slot = slots.length === 1 ? slots[0].id : slots.some(s=>s.id===slotId)?slotId:slots.find(s=>clock<new Date(date+'T'+s.start+':00+07:00').getTime())?.id||'', identity = { productId:product.id, variantId:variant.id, date, ...(slot ? {slotId:slot} : {}) }, selected = items.find(i => saleIdentity(i) === saleIdentity(identity)), count = Object.values(selected?.quantities || {}).reduce((n,q)=>n+q,0), packageCount = items.filter(i=>i.productId===product.id&&i.variantId===variant.id&&i.date===date).reduce((n,i)=>n+Object.values(i.quantities).reduce((a,b)=>a+b,0),0), hasLocal = groups.some(g=>g.startsWith('LOCAL_'));
   const rateKey = saleIdentity(identity);
   const rates = loadedRates?.key === rateKey ? loadedRates.data : null;
   const packageDraft = items.find(i => i.productId === product.id && i.variantId === variant.id && i.date === date);

@@ -1,0 +1,7 @@
+export type TimeSlot={id:string;start:string;end?:string};
+export type SchedulePeriod={id:string;startDate:string;endDate:string;weekdays?:number[];priority:number;reopenWeeklyClosures:boolean;timeSlots:TimeSlot[]};
+export type ScheduledVariant={timeSlots?:TimeSlot[];schedulePeriods?:SchedulePeriod[]};
+export function schedulePeriod(variant:ScheduledVariant,date:string){const day=new Date(date+'T00:00:00Z').getUTCDay()||7;return (variant.schedulePeriods||[]).map((p,index)=>({...p,index})).filter(p=>p.startDate<=date&&date<=p.endDate&&(!p.weekdays||p.weekdays.includes(day))).sort((a,b)=>b.priority-a.priority||(Date.parse(a.endDate)-Date.parse(a.startDate))-(Date.parse(b.endDate)-Date.parse(b.startDate))||b.index-a.index)[0];}
+export function scheduleSlots(variant:ScheduledVariant,date:string){return schedulePeriod(variant,date)?.timeSlots??variant.timeSlots??[];}
+export function allScheduleSlots(variant:ScheduledVariant){return [...new Map([...(variant.timeSlots||[]),...(variant.schedulePeriods||[]).flatMap(p=>p.timeSlots)].map(s=>[s.id,s])).values()];}
+export function scheduleClosureApplies(variant:ScheduledVariant,date:string,closure:{startDate:string;endDate:string;weekdays?:number[]}){const day=new Date(date+'T00:00:00Z').getUTCDay()||7;return closure.startDate<=date&&date<=closure.endDate&&(!closure.weekdays||closure.weekdays.includes(day))&&!(closure.startDate!==closure.endDate&&closure.weekdays?.length&&schedulePeriod(variant,date)?.reopenWeeklyClosures);}

@@ -44,3 +44,5 @@
 .gift-drawer-section{padding:16px;margin:12px 0;border:1px solid #e0e8e1;border-radius:12px}.gift-drawer-section ul{list-style:none;padding:0}.gift-drawer-section li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-block:8px;border-bottom:1px solid #e0e8e1}.gift-drawer-section li button{border:0;background:transparent;color:#a13b32;padding:6px 8px;cursor:pointer}.gift-drawer-section .gift-drawer-pay{width:100%;box-sizing:border-box;margin-top:8px}
 
 .gift-drawer-section li .gift-remove-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:8px;background:#fff3ef}.gift-drawer-section li .gift-remove-icon:hover{background:#ffe5dc}
+
+.web-cart-item-bottom details>label select{width:100%;min-width:0;border:1px solid #dce3d7;border-radius:8px;padding:10px;font:inherit;background:#fff;color:inherit}
