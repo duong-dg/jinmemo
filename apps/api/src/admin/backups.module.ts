@@ -36,7 +36,7 @@ export class BackupsService {
     for(const name of names.filter(n=>n.endsWith('.json')&&idPattern.test(n.slice(0,-5))).sort().reverse().slice(0,90)){try{data.push(await this.record(name.slice(0,-5)));}catch{}}
     let setup=null,lastRun=null;
     try{setup=z.object({schedule:z.literal('03:15 Asia/Ho_Chi_Minh'),keep:z.number().int().min(1).max(90),installedAt:z.string().datetime()}).parse(await this.json('setup.json'));}catch{}
-    try{lastRun=z.object({state:z.enum(['RUNNING','SUCCESS','FAILED']),updatedAt:z.string().datetime(),startedAt:z.string().datetime().optional()}).parse(await this.json('last-run.json'));}catch{}
+    try{lastRun=z.object({state:z.enum(['RUNNING','SUCCESS','FAILED']),updatedAt:z.string().datetime(),startedAt:z.string().datetime().optional(),phase:z.enum(['backup','preflight','snapshot','encrypt-and-verify','discover','database-preflight','media-preflight','initial-media-copy','pause-writers','final-media-copy','database-dump','compose-snapshot','environment-snapshot','media-archive','source-revision','encryption','archive-verification','publish-backup']).optional()}).parse(await this.json('last-run.json'));}catch{}
     return{configured:!!setup,data,setup,lastRun};
   }
   constructor(private readonly db:DatabaseService){}

@@ -51,6 +51,42 @@ class BackupTests(unittest.TestCase):
     def crypto(self):
         return b.Crypto(self.key, self.root, GPG)
 
+    def test_check_is_read_only_and_never_pauses_writers(self):
+        manager = self.manager()
+        media = self.root / 'check-media'
+        media.mkdir()
+        output = io.StringIO()
+        with patch.object(b, 'FileLock', lambda _: contextlib.nullcontext()), patch.object(b.shutil, 'which', return_value='/usr/bin/tool'), patch.object(manager, 'discover', return_value=({'postgres': {'Id': 'a' * 64}}, media)), patch.object(manager, 'psql', return_value=json.dumps(self.manifest['snapshot']).encode()), patch.object(manager, 'source_revision', return_value='b' * 40), patch.object(b.shutil, 'disk_usage', return_value=shutil._ntuple_diskusage(10**12, 0, 10**12)), patch.object(manager.runner, 'run') as run, contextlib.redirect_stdout(output):
+            manager.check()
+        run.assert_not_called()
+        self.assertIn('No containers were stopped', output.getvalue())
+        self.assertFalse((manager.out / 'last-run.json').exists())
+
+    def test_revision_supports_root_backup_of_user_owned_checkout(self):
+        manager = self.manager()
+        calls = []
+        def run(args, **kwargs):
+            calls.append([str(x) for x in args])
+            return b'b' * 40
+        manager.runner.run = run
+        self.assertEqual(manager.source_revision(), 'b' * 40)
+        self.assertIn('safe.directory=' + str(manager.project), calls[0])
+        manager.runner.run = lambda *_, **__: (_ for _ in ()).throw(b.BackupError('Git failed'))
+        with self.assertRaisesRegex(b.BackupError, 'source-revision is missing'):
+            manager.source_revision()
+        (manager.project / 'source-revision').write_text('c' * 40)
+        self.assertEqual(manager.source_revision(), 'c' * 40)
+
+    def test_diagnostics_do_not_expose_paths_or_subprocess_output(self):
+        error = FileNotFoundError(2, 'password=PRIVATE', '/private/secret-key')
+        summary = b.safe_failure(error)
+        self.assertEqual(summary, 'FileNotFoundError (OS error 2)')
+        self.assertNotIn('PRIVATE', summary)
+        with patch.object(b.subprocess, 'run', side_effect=error):
+            with self.assertRaisesRegex(b.BackupError, 'Media copy could not start') as caught:
+                b.Runner().run(['missing-command'], label='Media copy')
+        self.assertNotIn('PRIVATE', str(caught.exception))
+
     def test_real_gpg_roundtrip_and_wrong_key(self):
         target = self.root / 'backup.gpg'
         self.crypto().encrypt(self.payload, self.manifest, target)

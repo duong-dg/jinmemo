@@ -30,6 +30,7 @@ test('backup admin lists only complete metadata, streams authenticated ciphertex
   await writeFile(join(dir,id+'.restore-test.json'),JSON.stringify({id,sha256:'0'.repeat(64),testedAt:new Date().toISOString()}));assert.equal((await(await fetch(base,{headers})).json()).data[0].restoreTestedAt,undefined);
   await writeFile(join(dir,id+'.restore-test.json'),JSON.stringify({id,sha256:metadata.sha256,testedAt:new Date().toISOString()}));assert.ok((await(await fetch(base,{headers})).json()).data[0].restoreTestedAt);
   await writeFile(join(dir,id+'.tar.gpg'),Buffer.from('truncated'));assert.equal((await(await fetch(base,{headers})).json()).data.length,0);assert.equal((await fetch(base+'/'+id+'/download',{headers})).status,404);
+  await writeFile(join(dir,'last-run.json'),JSON.stringify({state:'FAILED',phase:'source-revision',updatedAt:new Date().toISOString(),reason:'must-not-expose'}));const failed=await(await fetch(base,{headers})).json();assert.equal(failed.lastRun.phase,'source-revision');assert.equal(failed.lastRun.reason,undefined);
   // Symlinks cannot become download targets (Windows may require elevation to create one).
   await rm(join(dir,id+'.tar.gpg'));try{await symlink(join(dir,'key'),join(dir,id+'.tar.gpg'));assert.equal((await(await fetch(base,{headers})).json()).data.length,0);}catch(e){if((e as NodeJS.ErrnoException).code!=='EPERM')throw e;}
  }finally{await app.close();await rm(dir,{recursive:true,force:true});delete process.env.BACKUP_DIR;}

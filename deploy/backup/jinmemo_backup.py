@@ -48,6 +48,13 @@ class BackupError(Exception):
     pass
 
 
+def safe_failure(error):
+    if isinstance(error, BackupError):
+        return str(error)
+    code = getattr(error, "errno", None)
+    return type(error).__name__ + (" (OS error " + str(code) + ")" if code is not None else "")
+
+
 def utc():
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -118,9 +125,12 @@ class FileLock:
 class Runner:
     def run(self, args, *, source=None, dest=None, label="command"):
         # No shell interpolation, credentials in argv, or raw subprocess errors in journal/UI.
-        result = subprocess.run([str(a) for a in args], stdin=source,
-                                stdout=dest if dest is not None else subprocess.PIPE,
-                                stderr=subprocess.PIPE, check=False)
+        try:
+            result = subprocess.run([str(a) for a in args], stdin=source,
+                                    stdout=dest if dest is not None else subprocess.PIPE,
+                                    stderr=subprocess.PIPE, check=False)
+        except OSError as error:
+            raise BackupError(label + " could not start (OS error " + str(error.errno) + ")") from None
         if result.returncode:
             raise BackupError(label + " failed (exit " + str(result.returncode) + ")")
         return result.stdout or b""
@@ -330,6 +340,37 @@ class Manager:
             time.sleep(1)
         raise BackupError("App containers did not resume; run recover and inspect Docker status")
 
+    def source_revision(self):
+        try:
+            revision = self.runner.run(["git", "-c", "safe.directory=" + str(self.project), "-C", self.project, "rev-parse", "HEAD"], label="Source revision").decode().strip()
+        except BackupError:
+            try:
+                revision = (self.project / "source-revision").read_text().strip()
+            except OSError:
+                raise BackupError("Source revision unavailable: Git cannot read HEAD and source-revision is missing or unreadable") from None
+        if not re.fullmatch(r"[a-f0-9]{40,64}", revision):
+            raise BackupError("Invalid source revision; expected a full Git commit ID")
+        return revision
+
+    def check(self):
+        # Read-only diagnostics: never stop containers, dump data, rotate backups or expose credentials.
+        for executable in ("docker", "rsync", "gpg", "git"):
+            if not shutil.which(executable):
+                raise BackupError("Install prerequisite: " + executable)
+        with FileLock(self.state / "operation.lock"):
+            found, media = self.discover()
+            snapshot = json.loads(self.psql(found["postgres"]["Id"], COUNTS_SQL))
+            media_bytes = sum(p.stat().st_size for p in media.rglob("*") if p.is_file() and not p.is_symlink())
+            revision = self.source_revision()
+            needed = media_bytes + snapshot["databaseBytes"]
+            reservations = [(self.state, needed * 3), (self.out, needed)]
+            if self.state.stat().st_dev == self.out.stat().st_dev:
+                reservations = [(self.state, needed * 4)]
+            for path, reserve in reservations:
+                if shutil.disk_usage(path).free < reserve + 1024 ** 3:
+                    raise BackupError("Insufficient free disk for snapshot, encryption and verification copies")
+            print("Preflight passed: Compose, database, media, source revision " + revision[:12] + " and disk space. No containers were stopped. This does not replace a verified backup/restore-test.")
+
     def backup(self):
         with FileLock(self.state / "operation.lock"):
             self.resume()
@@ -337,10 +378,13 @@ class Manager:
             self.status("RUNNING", startedAt=started, phase="preflight")
             identifier = "jinmemo-backup-" + dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + secrets.token_hex(4)
             partial = self.out / (identifier + ".tar.gpg.partial")
+            phase = "discover"
             try:
                 found, media = self.discover()
+                phase = "database-preflight"
                 pg = found["postgres"]["Id"]
                 preflight = json.loads(self.psql(pg, COUNTS_SQL))
+                phase = "media-preflight"
                 media_bytes = sum(p.stat().st_size for p in media.rglob("*") if p.is_file() and not p.is_symlink())
                 needed = media_bytes + preflight["databaseBytes"]
                 reservations = [(self.state, needed * 3), (self.out, needed)]
@@ -354,20 +398,26 @@ class Manager:
                     snapshot_dir = work / "media"
                     snapshot_dir.mkdir(mode=0o700)
                     sync = ["rsync", "--archive", "--numeric-ids", "--delete", "--one-file-system", str(media) + "/", str(snapshot_dir) + "/"]
+                    phase = "initial-media-copy"
                     self.runner.run(sync, label="Initial media copy")
                     apps = [{"service": name, "id": found[name]["Id"]} for name in ("api", "worker", "web") if found[name]["State"]["Running"]]
                     project = found["api"]["Config"]["Labels"]["com.docker.compose.project"]
                     safe_json(self.state / "resume.json", {"project": project, "containers": apps})
                     try:
                         self.status("RUNNING", startedAt=started, phase="snapshot")
+                        phase = "pause-writers"
                         self.runner.run(["docker", "stop", "--time", "120", *[x["id"] for x in apps]], label="Pause JinMemo writers")
+                        phase = "final-media-copy"
                         self.runner.run(sync, label="Final media copy")
+                        phase = "database-dump"
                         snapshot = json.loads(self.psql(pg, COUNTS_SQL))
                         with open(work / "database.dump", "xb") as out:
                             self.runner.run(["docker", "exec", pg, "sh", "-eu", "-c", 'exec pg_dump --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom --no-owner --no-privileges'], dest=out, label="Database dump")
+                        phase = "compose-snapshot"
                         with open_private(work / "compose.json") as config_out:
                             self.compose("config", "--format", "json", dest=config_out, label="Compose configuration snapshot")
                         captured_at = utc()
+                        phase = "environment-snapshot"
                         env = self.project / ".env"
                         if env.is_symlink() or not env.is_file():
                             raise BackupError("Expected project .env file")
@@ -376,23 +426,25 @@ class Manager:
                     finally:
                         self.resume()
                     self.status("RUNNING", startedAt=started, phase="encrypt-and-verify")
+                    phase = "media-archive"
                     with tarfile.open(work / "media.tar.gz", "w:gz", compresslevel=1) as archive:
                         archive.add(snapshot_dir, arcname=".", recursive=True)
                     validate_media(work / "media.tar.gz", snapshot["keyRequired"])
-                    try:
-                        revision = self.runner.run(["git", "-C", self.project, "rev-parse", "HEAD"], label="Source revision").decode().strip()
-                    except BackupError:
-                        revision = (self.project / "source-revision").read_text().strip()
+                    phase = "source-revision"
+                    revision = self.source_revision()
                     manifest = {"format": FORMAT, "id": identifier, "createdAt": started, "snapshotAt": captured_at, "revision": revision,
                                 "appImage": found["api"]["Image"], "postgresImage": found["postgres"]["Image"], "snapshot": snapshot,
                                 "files": {name: {"bytes": (work / name).stat().st_size, "sha256": fingerprint(work / name)} for name in CONTENTS}}
                     validate_manifest(manifest)
+                    phase = "encryption"
                     self.crypto.encrypt(work, manifest, partial)
                     os.chmod(partial, 0o600)
+                    phase = "archive-verification"
                     with tempfile.TemporaryDirectory(prefix="verify-", dir=self.state) as verified:
                         unpacked = self.crypto.unpack(partial, verified)
                         with open(Path(verified) / "database.dump", "rb") as dump:
                             self.runner.run(["docker", "exec", "-i", pg, "pg_restore", "--list"], source=dump, label="Dump format verification")
+                    phase = "publish-backup"
                     archive_file = self.out / (identifier + ".tar.gpg")
                     digest = fingerprint(partial)
                     os.replace(partial, archive_file)
@@ -402,8 +454,10 @@ class Manager:
                     self.status("SUCCESS", startedAt=started, backupId=identifier)
                     self.prune()
                     print("Verified encrypted backup created: " + str(archive_file))
-            except BaseException:
-                self.status("FAILED", startedAt=started, phase="backup", reason="Backup failed; inspect host journal. Prior verified backups are retained.")
+            except BaseException as error:
+                reason = "Backup failed at " + phase + ": " + safe_failure(error)
+                self.status("FAILED", startedAt=started, phase=phase, reason=reason)
+                print(reason, file=sys.stderr)
                 raise
             finally:
                 partial.unlink(missing_ok=True)
@@ -609,6 +663,7 @@ def main():
     setup.add_argument("--project-dir", required=True)
     setup.add_argument("--replace-project", action="store_true")
     commands.add_parser("backup")
+    commands.add_parser("check")
     commands.add_parser("recover")
     verify = commands.add_parser("verify")
     verify.add_argument("archive")
@@ -630,7 +685,9 @@ def main():
             install(args.project_dir, args.replace_project)
             return
         manager = Manager(load_config(args.config))
-        if args.command == "backup":
+        if args.command == "check":
+            manager.check()
+        elif args.command == "backup":
             manager.backup()
         elif args.command == "recover":
             with FileLock(manager.state / "operation.lock"):
@@ -644,9 +701,9 @@ def main():
     except BackupError as error:
         print("JinMemo backup: " + str(error), file=sys.stderr)
         sys.exit(1)
-    except (OSError, ValueError, tarfile.TarError, KeyboardInterrupt):
+    except (OSError, ValueError, tarfile.TarError, KeyboardInterrupt) as error:
         # Keep errors out of stdout and never print resolved Compose/env/GPG diagnostics.
-        print("JinMemo backup operation failed. Check installation, disk space, key and Docker state. Prior backups are retained.", file=sys.stderr)
+        print("JinMemo backup operation failed (" + safe_failure(error) + "). Prior backups are retained.", file=sys.stderr)
         sys.exit(1)
 
 

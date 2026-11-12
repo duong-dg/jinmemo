@@ -98,3 +98,17 @@ python3 -m unittest discover -s deploy/backup -v
 Tests dùng GnuPG thật cho vòng mã hóa/giải mã, sai khóa, file hỏng; các thao tác Docker dùng mô phỏng để kiểm tra phục hồi container khi lỗi và cô lập tài nguyên. API test kiểm tra quyền tải, metadata, file thiếu/hỏng và audit. **Chưa chạy Docker/PostgreSQL thật trên server của bạn**: cần chạy backup + restore-test trên Ubuntu sau khi cài.
 
 Tham khảo: [PostgreSQL SQL dump](https://www.postgresql.org/docs/17/backup-dump.html), [pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html), [systemd timer](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html).
+
+## Khi timer chạy nhưng bản sao liên tục thất bại
+
+Cập nhật script đã cài mà giữ nguyên khóa/config và timer:
+
+```sh
+git pull --ff-only
+sudo install -m 0755 deploy/backup/jinmemo_backup.py /usr/local/lib/jinmemo-backup/jinmemo_backup.py
+sudo python3 /usr/local/lib/jinmemo-backup/jinmemo_backup.py check
+```
+
+`check` chỉ kiểm tra, không dừng container hay tạo bản sao. Lệnh xác minh Compose/database/media/Git và dung lượng tạm. Git được chỉ định safe.directory đúng thư mục dự án cho mỗi lần gọi, để service chạy root có thể đọc commit của checkout thuộc tài khoản triển khai. Không cấu hình safe.directory=* toàn hệ thống. Khi thiếu Git revision và file source-revision, báo lỗi rõ thay vì che FileNotFoundError.
+
+Sau khi check qua, chạy `sudo systemctl start jinmemo-backup.service`. Bước snapshot sẽ dừng ngắn API/web/worker để dữ liệu nhất quán, rồi tự bật lại. Kiểm tra `sudo journalctl -u jinmemo-backup.service -n 50 --no-pager` và bản sao mới/restore-test. Script mới ghi bước lỗi cùng loại lỗi/errno, không ghi nội dung khóa, mật khẩu, Compose config hay stderr thô. Giữ nguyên khóa hiện tại; không xóa bản sao cũ để xử lý lỗi chưa rõ nguyên nhân.
