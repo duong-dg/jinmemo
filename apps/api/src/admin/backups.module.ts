@@ -1,4 +1,5 @@
-import { Controller, Get, Injectable, Module, NotFoundException, Param, Req, Res, UseGuards } from '@nestjs/common';
+import {MysqlExportService} from './mysql-export';
+import { Controller, Get, Post, Injectable, Module, NotFoundException, Param, Req, Res, UseGuards } from '@nestjs/common';
 import { constants } from 'node:fs';
 import { open, readdir, realpath } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
@@ -51,9 +52,10 @@ export class BackupsService {
 }
 @Controller('admin/backups') @UseGuards(AdminGuard)
 class BackupsController {
- constructor(private readonly backups:BackupsService){}
+ constructor(private readonly backups:BackupsService,private readonly mysql:MysqlExportService){}
+ @Post('mysql-export')mysqlExport(@Req()req:any,@Res()res:Response){return this.mysql.download(req.admin.id,res);}
  @Get() list(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return this.backups.list();}
  @Get(':id/download') download(@Param('id')id:string,@Req()req:any,@Res()res:Response){res.setHeader('Cache-Control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');return this.backups.download(id,req.admin.id,res);}
 }
-@Module({imports:[AuthModule],providers:[BackupsService],controllers:[BackupsController]})
+@Module({imports:[AuthModule],providers:[BackupsService,MysqlExportService],controllers:[BackupsController]})
 export class BackupsModule {}
