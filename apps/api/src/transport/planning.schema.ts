@@ -26,8 +26,9 @@ export type SharedTrip=TransportPlan['trips'][number];
 export type RideRequest=TransportPlan['requests'][number];
 function ancestors(plan:TransportPlan,id:string){const result:string[]=[];while(id&&!result.includes(id)){result.push(id);id=plan.areas.find(a=>a.id===id)?.parentId||'';}return result;}
 // A geographic parent is not permission to sell at that parent's price.
-// Every traversed child must explicitly configure this vehicle (0 is an intentional no-fee approval).
-export function pricedAncestors(plan:TransportPlan,id:string,vehicleId:string){const result:string[]=[],seen=new Set<string>();while(id&&!seen.has(id)){seen.add(id);const area=plan.areas.find(a=>a.id===id);if(!area)break;result.push(id);if(!area.parentId||!Object.prototype.hasOwnProperty.call(area.surcharges,vehicleId))break;id=area.parentId;}return result;}
+// A centre flag explicitly approves the parent region at no extra charge; otherwise each hop needs a vehicle fee (including explicit 0).
+export function pricedAncestors(plan:TransportPlan,id:string,vehicleId:string){const result:string[]=[],seen=new Set<string>();let central=false;while(id&&!seen.has(id)){seen.add(id);const area=plan.areas.find(a=>a.id===id);if(!area)break;central=central||area.central===true;result.push(id);if(!area.parentId||!central&&!Object.prototype.hasOwnProperty.call(area.surcharges,vehicleId))break;id=area.parentId;}return result;}
+function inheritedFee(plan:TransportPlan,id:string,stop:string,vehicleId:string){let total=0,central=false;const seen=new Set<string>();while(id!==stop&&!seen.has(id)){seen.add(id);const area=plan.areas.find(a=>a.id===id);if(!area)break;central=central||area.central===true;if(!central)total+=area.surcharges[vehicleId]||0;id=area.parentId||'';}return total;}
 const minute=(t:string)=>Number(t.slice(0,2))*60+Number(t.slice(3));
 export function compatible(p:TransportPlan,r:RideRequest,t:SharedTrip){return r.date===t.date&&ancestors(p,r.from).includes(t.from)&&ancestors(p,r.to).includes(t.to)&&Math.abs(minute(r.time)-minute(t.departure))<=r.flexMinutes;}
 export function remainingSeats(p:TransportPlan,t:SharedTrip,excludeRequest?:string){return(p.vehicles.find(v=>v.id===t.vehicleId)?.seats||0)-p.requests.filter(r=>r.id!==excludeRequest&&r.tripId===t.id&&(r.status==='HELD'||r.status==='CONFIRMED')).reduce((n,r)=>n+r.passengers,0);}
@@ -40,7 +41,7 @@ export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:num
   const starts=pricedAncestors(p,from,v.id),ends=pricedAncestors(p,to,v.id);
   const candidates=p.fares.filter(f=>f.vehicleId===v.id).flatMap(f=>{const forward=starts.includes(f.from)&&ends.includes(f.to),reverse=f.twoWay&&starts.includes(f.to)&&ends.includes(f.from);if(!forward&&!reverse)return[];const routeFrom=forward?f.from:f.to,routeTo=forward?f.to:f.from;return[{f,routeFrom,routeTo,score:starts.indexOf(routeFrom)+ends.indexOf(routeTo)}];}).sort((a,b)=>a.score-b.score);
   if(!candidates.length)return[];if(candidates[1]?.score===candidates[0].score)return[{vehicleId:v.id,error:'Có nhiều giá tuyến cùng mức ưu tiên. Cần nhập giá riêng cho tuyến này.'}];
-  const {f,score,routeFrom,routeTo}=candidates[0];const traversed=[...starts.slice(0,starts.indexOf(routeFrom)),...ends.slice(0,ends.indexOf(routeTo))],surcharge=traversed.reduce((n,id)=>n+(p.areas.find(a=>a.id===id)?.surcharges[v.id]||0),0);
+  const {f,score,routeFrom,routeTo}=candidates[0],surcharge=inheritedFee(p,from,routeFrom,v.id)+inheritedFee(p,to,routeTo,v.id);
   return[{vehicleId:v.id,fareId:f.id,sharedEnabled:f.sharedEnabled,roundTripOnly:f.roundTripOnly,roundTripPrice:f.roundTripPrice,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
  });
 }
