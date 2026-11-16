@@ -3,3 +3,11 @@
 @media(max-width:650px){.content-list-tools{display:flex;flex-direction:column;align-items:stretch}.content-list-tools>*{width:100%;max-width:none}.translation-workspace>*{min-width:0}}
 
 .inline-translation .translation-stats,.inline-translation .content-list-tools,.inline-translation .product-list{display:none}.inline-translation .translation-workspace{display:block}.inline-translation .product-editor{border:0;box-shadow:none}.inline-translation .editor-fields{padding:0}
+
+.translation-editor.english-only .translation-source{display:none}
+.translation-editor.english-only .translation-row,.translation-editor.english-only .translation-column-head{grid-template-columns:minmax(0,1fr)}
+.translation-editor.english-only .translation-column-head>strong:first-child{display:none}
+.translation-row>.rich-editor{min-width:0;align-self:start}
+.translation-inline>.translation-stats,.translation-inline>.content-list-tools,.translation-inline>.translation-workspace>.product-list{display:none}
+.translation-inline>.translation-workspace{grid-template-columns:minmax(0,1fr)}
+.translation-preview>button{font-size:13px;padding:8px 12px}

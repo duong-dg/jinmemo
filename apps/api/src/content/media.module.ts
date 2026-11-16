@@ -1,4 +1,4 @@
-import {BadRequestException,Controller,Get,Injectable,Module,NotFoundException,Param,Post,Req,Res,UploadedFile,UseGuards,UseInterceptors,Body,HttpException} from '@nestjs/common';
+import {BadRequestException,ConflictException,Controller,Get,Injectable,Module,NotFoundException,Param,Post,Query,Req,Res,UploadedFile,UseGuards,UseInterceptors,Body,HttpException} from '@nestjs/common';
 import {FileInterceptor} from '@nestjs/platform-express';
 import type {Request,Response} from 'express';
 import {randomUUID} from 'node:crypto';
@@ -40,9 +40,19 @@ export class MediaService{
     const previous=this.previews.get(id);if(previous)return previous;if(this.previews.size>=2)throw new HttpException('Đang tạo ảnh chia sẻ. Thử lại sau.',429);
     const operation=(async()=>{const temporary=join(this.directory,`${id}.${randomUUID()}.share.tmp`);try{const data=await sharp(await readFile(source),{limitInputPixels:25_000_000}).resize(1200,630,{fit:'contain',background:'#f5f4ee'}).flatten({background:'#f5f4ee'}).jpeg({quality:86,mozjpeg:true}).toBuffer();await writeFile(temporary,data,{flag:'wx'});await rename(temporary,target);return target;}finally{await unlink(temporary).catch(()=>{});}})();this.previews.set(id,operation);try{return await operation;}finally{this.previews.delete(id);}
   }
-  private publicMetadata(row:Record<string,unknown>){const {created_by,...image}=row;return {...image,url:`/api/v1/media/${row.id}`};}
-  async list(){return (await this.db.pool.query('SELECT * FROM jinmemo_media ORDER BY created_at DESC LIMIT 100')).rows.map(row=>this.publicMetadata(row));}
-  async validateIds(ids:string[]){for(const id of new Set(ids)){const result=await this.db.pool.query('SELECT id FROM jinmemo_media WHERE id=$1',[id]);if(!result.rowCount)throw new BadRequestException('Ảnh tham chiếu không tồn tại trong thư viện.');}}
+  private publicMetadata(row:Record<string,unknown>){const {created_by,...image}=row;return {...image,id:String(row.id),url:`/api/v1/media/${row.id}`};}
+  async list(trash=false){return (await this.db.pool.query('SELECT * FROM jinmemo_media WHERE deleted_at IS '+(trash?'NOT NULL':'NULL')+' ORDER BY created_at DESC LIMIT 100')).rows.map(row=>this.publicMetadata(row));}
+  async validateIds(ids:string[]){for(const id of new Set(ids)){const result=await this.db.pool.query('SELECT id FROM jinmemo_media WHERE id=$1 AND deleted_at IS NULL',[id]);if(!result.rowCount)throw new BadRequestException('Ảnh tham chiếu không tồn tại trong thư viện.');}}
+  async trash(id:string,body:unknown,actor:string){
+    if(!z.uuid().safeParse(id).success)throw new BadRequestException('Mã ảnh không hợp lệ.');const parsed=z.object({trashed:z.boolean()}).strict().safeParse(body);if(!parsed.success)throw new BadRequestException('Kiểm tra thao tác ảnh.');
+    const client=await this.db.pool.connect();try{await client.query('BEGIN');const row=(await client.query('SELECT id,deleted_at FROM jinmemo_media WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!row)throw new NotFoundException('Không tìm thấy ảnh.');
+      if(parsed.data.trashed){
+        const references:[string,string][]=[['jinmemo_products','data'],['jinmemo_posts','data'],['jinmemo_post_revisions','data'],['jinmemo_destinations','data'],['jinmemo_pages','data'],['jinmemo_settings','data'],['jinmemo_stays','data'],['jinmemo_orders','snapshot'],['jinmemo_gift_orders','data'],['jinmemo_checkout_bundles','data']];
+        for(const [table,column] of references)if((await client.query('SELECT 1 FROM '+table+' WHERE '+column+'::text ILIKE $1 LIMIT 1',['%'+id+'%'])).rowCount)throw new ConflictException('Ảnh đang được sử dụng trong nội dung, cấu hình, đơn hoặc bản lưu lịch sử. Gỡ ảnh khỏi nội dung trước khi đưa vào thùng rác.');
+      }
+      await client.query('UPDATE jinmemo_media SET deleted_at=$1 WHERE id=$2',[parsed.data.trashed?new Date():null,id]);await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)',[randomUUID(),actor,parsed.data.trashed?'media.trash':'media.restore',id]);await client.query('COMMIT');return {ok:true};
+    }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+  }
   async file(id:string){
     if(!z.uuid().safeParse(id).success)throw new NotFoundException();
     const result=await this.db.pool.query('SELECT id FROM jinmemo_media WHERE id=$1',[id]);if(!result.rowCount)throw new NotFoundException();
@@ -53,7 +63,8 @@ export class MediaService{
 @UseGuards(AdminGuard)
 class AdminMediaController{
   constructor(private readonly media:MediaService){}
-  @Get()async list(@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return {data:await this.media.list()};}
+  @Get()async list(@Query('trash')trash:string|undefined,@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','no-store');return {data:await this.media.list(trash==='1')};}
+  @Post(':id/trash')trash(@Param('id')id:string,@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return this.media.trash(id,body,req.admin.id);}
   @Post()@UseInterceptors(FileInterceptor('file',{limits:{fileSize:5*1024*1024,files:1,fields:1}}))
   async upload(@UploadedFile()file:Upload,@Body('alt')alt:unknown,@Req()req:Request&{admin:{id:string}}){
     const parsed=z.string().trim().max(300).safeParse(alt??'');if(!parsed.success)throw new BadRequestException('Mô tả ảnh tối đa 300 ký tự.');

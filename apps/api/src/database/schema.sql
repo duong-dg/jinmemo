@@ -201,3 +201,5 @@ ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_stay_
 ALTER TABLE jinmemo_admin_notification_reads ADD COLUMN IF NOT EXISTS last_gift_id bigint;
 
 CREATE TABLE IF NOT EXISTS jinmemo_stay_payment_events(event_id text PRIMARY KEY REFERENCES jinmemo_gateway_events(id),booking_id uuid NOT NULL REFERENCES jinmemo_stay_bookings(id));
+
+ALTER TABLE jinmemo_media ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
