@@ -13,3 +13,9 @@ Sửa ngày 16/11/2026: cây địa lý không tự cho phép kế thừa bảng
 Admin → Đặt xe → Khu vực: mở Thiết lập để sửa mức cộng. Có thể chọn hàng loạt điểm xa, mở công cụ hàng loạt và chọn Bỏ duyệt giá cha để gỡ cả mức 0 cũ; Admin → Đặt xe → Giá tuyến: nhập giá riêng. Web và POS dùng cùng backend kiểm tra lại khi tạo đơn; browser giữ danh sách cũ cũng không thể tạo đơn với tuyến không còn giá hợp lệ.
 
 Không sửa ngược giá hoặc thanh toán của booking đã tạo. Nếu trước đây có đơn bị áp nhầm 250k, rà riêng các đơn đó và liên hệ khách để xử lý; thay bảng giá không sửa snapshot đã chốt.
+
+## Xe ghép cho điểm trung tâm
+
+Khu vực được tích Trung tâm có thể dùng tuyến cha đã bật xe ghép, cùng chiều đi và cấu hình số người ghép. Chỉ có phụ thu bằng 0 không tự bật xe ghép. Giá tuyến riêng gần hơn vẫn được ưu tiên, kể cả khi tuyến riêng tắt ghép.
+
+Nhóm ghép dùng điểm đầu/cuối của tuyến giá để nhận khách từ các điểm trung tâm khác nhau. Booking vẫn lưu khu vực và địa chỉ đón/trả cụ thể của từng khách. Hai chiều không ghép chung nhau; ngày, giờ, loại xe và giới hạn chỗ vẫn được kiểm tra như trước. Không thay đổi các booking cũ.

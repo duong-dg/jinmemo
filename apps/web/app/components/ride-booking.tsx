@@ -12,7 +12,7 @@ import {DatePicker} from './date-picker';
 import {TimePicker} from './time-picker';
 import {RideAreaSearch} from './ride-area-search';
 import {useEffect,useRef,useState} from 'react';
-type Area={id:string;name:string;englishName?:string;aliases?:string[];parentId?:string};
+type Area={central?:boolean;id:string;name:string;englishName?:string;aliases?:string[];parentId?:string};
 type Offer={roundTrip?:boolean;poolId?:string|null;shareSize?:number|null;departure?:string;occupied?:number;remaining?:number;tripTotal?:number;unitPrice?:number;vehicleId:string;name:string;seats:number;image:{id:string;alt:string}|null;note:string;durationMinutes:number|null;total:number};
 export type RideCatalog={sharedScopes?:SharedScope[];enabled:boolean;qrEnabled?:boolean;areas:Area[]};
 export function RideBooking({catalog,en=false,atCounter=false}:{catalog:RideCatalog;en?:boolean;atCounter?:boolean}){
@@ -24,10 +24,10 @@ export function RideBooking({catalog,en=false,atCounter=false}:{catalog:RideCata
  const checkoutDialog=useRef<HTMLDialogElement>(null);
  const[from,setFrom]=useState(''),[to,setTo]=useState(''),[date,setDate]=useState(()=>initialDeparture().slice(0,10)),[time,setTime]=useState(()=>initialDeparture().slice(11,16)),[passengers,setPassengers]=useState(1),[mode,setMode]=useState('PRIVATE'),[offers,setOffers]=useState<Offer[]>([]),[chosen,setChosen]=useState<Offer>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[searched,setSearched]=useState(false),[code,setCode]=useState('');const key=useRef('');const[tracking,setTracking]=useState<{roundTrip?:boolean;returnTime?:string;status:string;total:number;paymentStatus?:string;pool:{target:number;used:number;departure:string;status:string}|null}>();
  const[destinationResult,setDestinationResult]=useState<{key:string;ids:string[]}>();
- const destinationKey=from+':'+passengers;
- useEffect(()=>{if(!from)return;const abort=new AbortController();const currentKey=from+':'+passengers;
-  void fetch('/api/v1/rides/destinations?'+new URLSearchParams({from,passengers:String(passengers)}),{signal:abort.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('destinations');return response.json();}).then(result=>{if(abort.signal.aborted)return;const ids:string[]=result.data;setDestinationResult({key:currentKey,ids});setTo(previous=>ids.includes(previous)?previous:'');}).catch(()=>{if(!abort.signal.aborted)setDestinationResult({key:currentKey,ids:[]});});return()=>abort.abort();
- },[from,passengers]);
+ const destinationKey=from+':'+passengers+':'+mode;
+ useEffect(()=>{if(!from)return;const abort=new AbortController();const currentKey=from+':'+passengers+':'+mode;
+  void fetch('/api/v1/rides/destinations?'+new URLSearchParams({from,passengers:String(passengers),mode}),{signal:abort.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('destinations');return response.json();}).then(result=>{if(abort.signal.aborted)return;const ids:string[]=result.data;setDestinationResult({key:currentKey,ids});setTo(previous=>ids.includes(previous)?previous:'');}).catch(()=>{if(!abort.signal.aborted)setDestinationResult({key:currentKey,ids:[]});});return()=>abort.abort();
+ },[from,passengers,mode]);
  useEffect(()=>{const params=new URLSearchParams(window.location.search),a=params.get('from'),b=params.get('to');if(a&&b&&a!==b&&catalog.areas.some(x=>x.id===a)&&catalog.areas.some(x=>x.id===b)){setFrom(a);setTo(b);setMode(params.get('mode')==='SHARED'&&catalog.sharedScopes?.some(s=>s.shared)?'SHARED':'PRIVATE');const vehicle=params.get('vehicle');if(vehicle)setPreferred({vehicle,share:Number(params.get('share'))||0});}},[]);
  useEffect(()=>{if(!chosen||code)return;const dialog=checkoutDialog.current;if(!dialog)return;const previous=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;dialog.showModal();document.body.style.overflow='hidden';return()=>{dialog.close();document.body.style.overflow=overflow;previous?.focus();};},[chosen,code]);
  useEffect(()=>{if(!code)return;let stopped=false;const refresh=async()=>{try{const response=await fetch('/api/v1/rides/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,requestKey:key.current})});if(response.ok&&!stopped)setTracking(await response.json());}catch{}};void refresh();const timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},15000);return()=>{stopped=true;clearInterval(timer);};},[code]);

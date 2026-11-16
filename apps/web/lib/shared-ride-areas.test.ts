@@ -13,3 +13,13 @@ test('shared search excludes private-only areas and narrows destinations by depa
  scopes[0].twoWay=false;assert.deepEqual(sharedRideAreas(areas,scopes,'dn'),[]);
  assert.deepEqual(sharedRideAreas(areas,[]),[]);
 });
+
+test('central points inherit shared routes but explicit private-only routes override them',()=>{
+ const areas=[{id:'ha'},{id:'dn'},{id:'district',parentId:'dn'},{id:'center',parentId:'district',central:true},{id:'remote',parentId:'dn'}];
+ const scopes:SharedScope[]=[{from:'ha',to:'dn',vehicleId:'v',twoWay:true,shared:true}];
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha').map(a=>a.id),['dn','center']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'center').map(a=>a.id),['ha']);
+ scopes.push({from:'ha',to:'center',vehicleId:'v',twoWay:true,shared:false});
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha').map(a=>a.id),['dn']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'center'),[]);
+});

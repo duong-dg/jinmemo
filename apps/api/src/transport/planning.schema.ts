@@ -34,7 +34,8 @@ export function compatible(p:TransportPlan,r:RideRequest,t:SharedTrip){return r.
 export function remainingSeats(p:TransportPlan,t:SharedTrip,excludeRequest?:string){return(p.vehicles.find(v=>v.id===t.vehicleId)?.seats||0)-p.requests.filter(r=>r.id!==excludeRequest&&r.tripId===t.id&&(r.status==='HELD'||r.status==='CONFIRMED')).reduce((n,r)=>n+r.passengers,0);}
 export function tripOpen(t:SharedTrip,now=Date.now()){return t.status==='OPEN'&&now<new Date(t.date+'T'+t.departure+':00+07:00').getTime()-t.cutoffMinutes*60000;}
 export function suggestTrips(p:TransportPlan,r:RideRequest,now=Date.now()){if(r.status==='CANCELLED')return[];return p.trips.filter(t=>tripOpen(t,now)&&compatible(p,r,t)&&remainingSeats(p,t,r.id)>=r.passengers).map(t=>t.id);}
-type PlanQuote={sharedEnabled?:boolean;roundTripOnly?:boolean;roundTripPrice?:number;vehicleId:string;error?:string;fareId?:string;base?:number;surcharge?:number;total?:number;seatPrice?:number;exact?:boolean;durationMinutes?:number};
+function centralPath(p:TransportPlan,id:string,stop:string){let central=false;const seen=new Set<string>();while(id!==stop&&!seen.has(id)){seen.add(id);const a=p.areas.find(a=>a.id===id);if(!a?.parentId)return false;central=central||a.central===true;if(!central)return false;id=a.parentId;}return id===stop;}
+type PlanQuote={poolFrom?:string;poolTo?:string;sharedEligible?:boolean;sharedEnabled?:boolean;roundTripOnly?:boolean;roundTripPrice?:number;vehicleId:string;error?:string;fareId?:string;base?:number;surcharge?:number;total?:number;seatPrice?:number;exact?:boolean;durationMinutes?:number};
 export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:number){
  if(!p.areas.some(a=>a.id===from)||!p.areas.some(a=>a.id===to)||from===to)return[];
  return p.vehicles.filter(v=>v.seats>=passengers).flatMap<PlanQuote>(v=>{
@@ -42,6 +43,6 @@ export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:num
   const candidates=p.fares.filter(f=>f.vehicleId===v.id).flatMap(f=>{const forward=starts.includes(f.from)&&ends.includes(f.to),reverse=f.twoWay&&starts.includes(f.to)&&ends.includes(f.from);if(!forward&&!reverse)return[];const routeFrom=forward?f.from:f.to,routeTo=forward?f.to:f.from;return[{f,routeFrom,routeTo,score:starts.indexOf(routeFrom)+ends.indexOf(routeTo)}];}).sort((a,b)=>a.score-b.score);
   if(!candidates.length)return[];if(candidates[1]?.score===candidates[0].score)return[{vehicleId:v.id,error:'Có nhiều giá tuyến cùng mức ưu tiên. Cần nhập giá riêng cho tuyến này.'}];
   const {f,score,routeFrom,routeTo}=candidates[0],surcharge=inheritedFee(p,from,routeFrom,v.id)+inheritedFee(p,to,routeTo,v.id);
-  return[{vehicleId:v.id,fareId:f.id,sharedEnabled:f.sharedEnabled,roundTripOnly:f.roundTripOnly,roundTripPrice:f.roundTripPrice,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
+  return[{poolFrom:routeFrom,poolTo:routeTo,sharedEligible:centralPath(p,from,routeFrom)&&centralPath(p,to,routeTo),vehicleId:v.id,fareId:f.id,sharedEnabled:f.sharedEnabled,roundTripOnly:f.roundTripOnly,roundTripPrice:f.roundTripPrice,base:f.privatePrice,surcharge,total:f.privatePrice+surcharge,seatPrice:f.seatPrice,exact:score===0,durationMinutes:f.durationMinutes}];
  });
 }
