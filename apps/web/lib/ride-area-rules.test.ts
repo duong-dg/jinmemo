@@ -16,3 +16,8 @@ test('public route labels use English names with safe automatic fallback',()=>{
  assert.equal(areaDisplayName({name:'Hội An',englishName:'Hoi An Old Town'},true),'Hoi An Old Town');
  assert.equal(areaDisplayName({name:'Đà Nẵng',englishName:'Da Nang'}),'Đà Nẵng');
 });
+
+test('moving an area to a new price parent revokes old inherited fees until reviewed again',()=>{const input=[...areas,{id:'hue',name:'Huế',surcharges:{}}],moved=setAreaParent(input,['hk'],'hue');assert.equal(moved[1].parentId,'hue');assert.deepEqual(moved[1].surcharges,{});assert.deepEqual(input[1].surcharges,{v4:20000});assert.deepEqual(setAreaParent(input,['hk'],'dn')[1].surcharges,{v4:20000});const approved=setAreaExtra(moved,['hk'],['v4'],0);assert.ok(Object.prototype.hasOwnProperty.call(approved.areas[1].surcharges,'v4'));assert.equal(approved.areas[1].surcharges.v4,0);});
+
+import {clearAreaExtra} from './ride-area-rules';
+test('bulk revoking parent-price approval removes even explicit zero fees without touching another vehicle or area',()=>{const input:Area[]=[{id:'a',name:'Remote',parentId:'dn',surcharges:{v4:0,v7:50000}},{id:'b',name:'Keep',parentId:'dn',surcharges:{v4:0}}],result=clearAreaExtra(input,['a'],['v4']);assert.deepEqual(result.areas[0].surcharges,{v7:50000});assert.deepEqual(result.areas[1],input[1]);assert.equal(result.applied,1);assert.deepEqual(input[0].surcharges,{v4:0,v7:50000});});
