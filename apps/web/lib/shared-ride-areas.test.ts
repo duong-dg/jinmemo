@@ -23,3 +23,16 @@ test('central points inherit shared routes but explicit private-only routes over
  assert.deepEqual(sharedRideAreas(areas,scopes,'ha').map(a=>a.id),['dn']);
  assert.deepEqual(sharedRideAreas(areas,scopes,'center'),[]);
 });
+
+test('shared area choices follow group capacity and never fall back past a nearer disabled route',()=>{
+ const areas=[{id:'ha'},{id:'dn'},{id:'center',parentId:'dn',central:true},{id:'hue'}];
+ const scopes:SharedScope[]=[{from:'ha',to:'dn',vehicleId:'car',twoWay:true,shared:true,sharedSizes:[2]},{from:'ha',to:'hue',vehicleId:'van',shared:true,sharedSizes:[3,4]}];
+ assert.deepEqual(sharedRideAreas(areas,scopes,undefined,3).map(a=>a.id),['ha']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha',3).map(a=>a.id),['hue']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha',2).map(a=>a.id),['dn','center','hue']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'center',3),[]);
+ assert.deepEqual(sharedRideAreas(areas,scopes,undefined,5),[]);
+ assert.deepEqual(sharedRideAreas(areas,scopes,undefined,0),[]);
+ scopes.push({from:'ha',to:'center',vehicleId:'car',twoWay:true,shared:false,sharedSizes:[2]});
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha',2).map(a=>a.id),['dn','hue']);
+});
