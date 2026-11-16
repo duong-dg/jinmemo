@@ -68,3 +68,13 @@
 .ride-offer-actions > button:only-child { grid-column: 1 / -1; }
 
 .ride-offer .ride-offer-actions > .button { border: 1px solid transparent; }
+
+.ride-destination-status:empty { display: none; }
+.ride-destination-status .ride-hint { margin: 10px 0 0; }
+.ride-destination-retry {
+ display: inline-flex; align-items: center; justify-content: center;
+ margin-left: 6px; padding: 5px 12px; border: 1px solid #f5c5af; border-radius: 8px;
+ background: #fff4ed; color: #a83b14; font: inherit; font-weight: 600; cursor: pointer;
+}
+.ride-destination-retry:hover { background: #ffe9dd; }
+.ride-destination-retry:focus-visible { outline: 2px solid #c45125; outline-offset: 2px; }
