@@ -1,3 +1,4 @@
+import {giftOrderFilter} from './gift-order-search';
 import {FeaturesService} from '../content/features.module';
 import {BadRequestException,Body,ConflictException,Controller,ForbiddenException,Get,Injectable,Module,NotFoundException,Param,Post,Query,Req,Res,UseGuards} from '@nestjs/common';
 import {randomUUID,createHash} from 'node:crypto';
@@ -100,8 +101,15 @@ class GiftsService{
  async list(){
   return {data:(await this.db.pool.query('SELECT g.id,g.code,g.status,g.data,g.created_at,b.code AS bundle_code FROM jinmemo_gift_orders g LEFT JOIN jinmemo_checkout_members m ON m.entity_id=g.id::text AND m.kind=\'giftId\' LEFT JOIN jinmemo_checkout_bundles b ON b.id=m.bundle_id ORDER BY g.created_at DESC LIMIT 100')).rows};
  }
- async update(id:string,body:unknown){
-  const {status}=parse(z.object({status:z.enum(['SHIPPING','COMPLETED','CANCELLED'])}).strict(),body);
+ async searchOrders(raw:unknown){
+  const {input,params,where}=giftOrderFilter(raw),source=" FROM jinmemo_gift_orders g LEFT JOIN jinmemo_checkout_members m ON m.entity_id=g.id::text AND m.kind='giftId' LEFT JOIN jinmemo_checkout_bundles b ON b.id=m.bundle_id",client=await this.db.pool.connect();
+  try{await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');const total=Number((await client.query('SELECT count(*) AS total'+source+where,params)).rows[0].total),pages=Math.max(1,Math.ceil(total/50)),page=Math.min(input.page,pages);
+   const rows=(await client.query('SELECT g.id,g.code,g.status,g.data,g.created_at,b.code AS bundle_code'+source+where+' ORDER BY g.created_at DESC,g.id DESC LIMIT 50 OFFSET '+((page-1)*50),params)).rows;
+   await client.query('COMMIT');return {data:rows.map(r=>({...r,data:{...r.data,requestHash:undefined,fingerprint:undefined}})),total,page,pages,pageSize:50};
+  }catch(error){await client.query('ROLLBACK');throw error;}finally{client.release();}
+ }
+ async update(id:string,body:unknown,actor:string){
+  const {status,expectedStatus}=parse(z.object({status:z.enum(['SHIPPING','COMPLETED','CANCELLED']),expectedStatus:z.enum(['PENDING','SHIPPING','COMPLETED','CANCELLED']).optional()}).strict(),body);
   const client=await this.db.pool.connect();
   try{
    await client.query('BEGIN');
@@ -109,6 +117,7 @@ class GiftsService{
    const row=(await client.query('SELECT status,data FROM jinmemo_gift_orders WHERE id=$1 FOR UPDATE',[id])).rows[0];
    if(!row)throw new NotFoundException();
    if(row.status!==status){
+    if(expectedStatus&&row.status!==expectedStatus)throw new ConflictException('Đơn vừa được cập nhật. Tải lại trước khi xử lý.');
     if(['COMPLETED','CANCELLED'].includes(row.status)||status==='SHIPPING'&&row.data.fulfillment!=='DELIVERY')throw new ConflictException('Không thể đổi sang trạng thái này.');
     if(status==='CANCELLED'){
      const {version,...config}=await this.config(client);
@@ -116,6 +125,7 @@ class GiftsService{
      await client.query("UPDATE jinmemo_settings SET data=$1,version=version+1 WHERE id='gifts'",[JSON.stringify({...config,items})]);
     }
     await client.query('UPDATE jinmemo_gift_orders SET status=$1 WHERE id=$2',[status,id]);
+    await client.query('INSERT INTO jinmemo_audit(id,admin_id,action,entity_id)VALUES($1,$2,$3,$4)',[randomUUID(),actor,'gift.order.'+status.toLowerCase(),id]);
    }
    await client.query('COMMIT');
    return {ok:true};
@@ -140,7 +150,8 @@ class AdminGiftsController{
  constructor(private readonly gifts:GiftsService){}
  @Get()async read(){return {config:await this.gifts.config(),...(await this.gifts.list())};}
  @Post()save(@Body()body:unknown){return this.gifts.save(body);}
- @Post('orders/:id')update(@Param('id')id:string,@Body()body:unknown){return this.gifts.update(id,body);}
+ @Get('orders')orders(@Query()query:Record<string,string>,@Res({passthrough:true})res:Response){res.setHeader('Cache-Control','private, no-store');return this.gifts.searchOrders(query);}
+ @Post('orders/:id')update(@Param('id')id:string,@Body()body:unknown,@Req()req:Request&{admin:{id:string}}){return this.gifts.update(id,body,req.admin.id);}
 }
 @Module({imports:[AuthModule],providers:[GiftsService],controllers:[GiftsController,AdminGiftsController]})
 export class GiftsModule{}

@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {GiftOrders,type GiftOrder} from './gift-orders';
+import {GiftOrders} from './gift-orders';
 import {adminApi} from '../shared/admin-api';
 import {ImageField} from '../shared/media-picker';
 import {areaSearchText} from '../../../lib/ride-area-search';
@@ -9,7 +9,7 @@ import {giftMoney,type GiftConfig} from '../../qua-luu-niem/shop';
 
 type Config=GiftConfig&{version:number};
 export function GiftEditor({view='products'}:{view?:'products'|'orders'|'settings'}){
- const [config,setConfig]=useState<Config>(),[orders,setOrders]=useState<GiftOrder[]>([]);
+ const [config,setConfig]=useState<Config>();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const dialog=useRef<HTMLDialogElement>(null);
  const [query,setQuery]=useState(''),[editing,setEditing]=useState(false);
@@ -27,8 +27,8 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
   setBusy(true);setError('');setNotice('');
   try{await action();}catch(e){setError((e as Error).message);}finally{setBusy(false);}
  }
- async function load(){const data=await adminApi('gifts');setConfig(data.config);setOrders(data.data);setShippingFee(String(data.config.shippingFee));setEnabled(data.config.enabled);}
- useEffect(()=>{void run(load);},[]);
+ async function load(){const data=await adminApi('gifts');setConfig(data.config);setShippingFee(String(data.config.shippingFee));setEnabled(data.config.enabled);}
+ useEffect(()=>{if(view!=='orders')void run(load);},[view]);
  return <section>
   {error&&!editing&&<p className="admin-error" role="alert">{error}</p>}
   {notice&&<p className="admin-success" role="status">{notice}</p>}
@@ -100,9 +100,6 @@ export function GiftEditor({view='products'}:{view?:'products'|'orders'|'setting
     <button className="button" disabled={!shippingFee.trim()||!Number.isInteger(Number(shippingFee))||Number(shippingFee)<0||Number(shippingFee)>10000000||enabled===config.enabled&&Number(shippingFee)===config.shippingFee}>Lưu thiết lập</button>
    </fieldset>
   </form>}
-  {view==='orders'&&<GiftOrders orders={orders} busy={busy} onRefresh={()=>void run(load)} onUpdate={(order,status)=>{
-   if(!window.confirm(status==='CANCELLED'&&order.data.paymentStatus==='PAID'?'Đơn '+order.code+' đã thu tiền. Hủy sẽ trả hàng về kho nhưng không tự hoàn tiền. Tiếp tục?':'Cập nhật đơn '+order.code+' sang '+({SHIPPING:'Đang giao',COMPLETED:'Đã giao / nhận',CANCELLED:'Đã hủy'}[status])+'?'))return;
-   void run(async()=>{await adminApi('gifts/orders/'+order.id,{status});await load();setNotice(status==='CANCELLED'?'Đã hủy và trả hàng về kho.':'Đã cập nhật đơn '+order.code+'.');});
-  }}/>}
+  {view==='orders'&&<GiftOrders/>}
  </section>;
 }
