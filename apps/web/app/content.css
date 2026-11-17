@@ -7,3 +7,24 @@
 .product-location svg { flex-shrink: 0; margin-top: 1px; color: #dc7546; }
 .product-location a:hover { color: #b95028; text-decoration: underline; }
 .product-location span { overflow-wrap: anywhere; }
+
+/* Local Latin + Vietnamese subsets keep accented and unaccented bold glyphs in the same face. */
+@font-face {
+ font-family: 'JinMemo Article'; font-style: normal; font-weight: 400 700; font-display: swap;
+ src: url('/fonts/noto-sans-vietnamese-v42.woff2') format('woff2');
+ unicode-range: U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;
+}
+@font-face {
+ font-family: 'JinMemo Article'; font-style: normal; font-weight: 400 700; font-display: swap;
+ src: url('/fonts/noto-sans-latin-v42.woff2') format('woff2');
+ unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+.article-page,.blog-intro,.blog-card {
+ font-family: 'JinMemo Article',Arial,Helvetica,sans-serif;
+ font-synthesis: style;
+}
+.article-heading h1,.article-page .prose :is(h2,h3,h4),.blog-intro h1,.blog-card-body h2 {
+ font-family: inherit; font-weight: 700; letter-spacing: normal; line-height: 1.45;
+}
+.article-page .prose :is(strong,b) { font-family: inherit; font-weight: 700; }
+.article-page .prose :is(h2,h3,h4) :is(strong,b) { font-weight: inherit; }
