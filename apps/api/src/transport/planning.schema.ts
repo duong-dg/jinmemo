@@ -34,7 +34,8 @@ export function compatible(p:TransportPlan,r:RideRequest,t:SharedTrip){return r.
 export function remainingSeats(p:TransportPlan,t:SharedTrip,excludeRequest?:string){return(p.vehicles.find(v=>v.id===t.vehicleId)?.seats||0)-p.requests.filter(r=>r.id!==excludeRequest&&r.tripId===t.id&&(r.status==='HELD'||r.status==='CONFIRMED')).reduce((n,r)=>n+r.passengers,0);}
 export function tripOpen(t:SharedTrip,now=Date.now()){return t.status==='OPEN'&&now<new Date(t.date+'T'+t.departure+':00+07:00').getTime()-t.cutoffMinutes*60000;}
 export function suggestTrips(p:TransportPlan,r:RideRequest,now=Date.now()){if(r.status==='CANCELLED')return[];return p.trips.filter(t=>tripOpen(t,now)&&compatible(p,r,t)&&remainingSeats(p,t,r.id)>=r.passengers).map(t=>t.id);}
-function centralPath(p:TransportPlan,id:string,stop:string){let central=false;const seen=new Set<string>();while(id!==stop&&!seen.has(id)){seen.add(id);const a=p.areas.find(a=>a.id===id);if(!a?.parentId)return false;central=central||a.central===true;if(!central)return false;id=a.parentId;}return id===stop;}
+export function centralAncestors(p:TransportPlan,id:string){const ids:string[]=[],seen=new Set<string>();let central=false;while(id&&!seen.has(id)){seen.add(id);const a=p.areas.find(a=>a.id===id);if(!a)break;ids.push(id);central=central||a.central===true;if(!central)break;id=a.parentId||'';}return ids;}
+function centralPath(p:TransportPlan,id:string,stop:string){return centralAncestors(p,id).includes(stop);}
 type PlanQuote={poolFrom?:string;poolTo?:string;sharedEligible?:boolean;sharedEnabled?:boolean;roundTripOnly?:boolean;roundTripPrice?:number;vehicleId:string;error?:string;fareId?:string;base?:number;surcharge?:number;total?:number;seatPrice?:number;exact?:boolean;durationMinutes?:number};
 export function quoteRoutes(p:TransportPlan,from:string,to:string,passengers:number){
  if(!p.areas.some(a=>a.id===from)||!p.areas.some(a=>a.id===to)||from===to)return[];

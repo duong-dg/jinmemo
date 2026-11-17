@@ -12,7 +12,7 @@ import {DatePicker} from './date-picker';
 import {TimePicker} from './time-picker';
 import {RideAreaSearch} from './ride-area-search';
 import {useEffect,useMemo,useRef,useState} from 'react';
-type Area={central?:boolean;id:string;name:string;englishName?:string;aliases?:string[];parentId?:string};
+type Area={sharedAncestors?:string[];central?:boolean;id:string;name:string;englishName?:string;aliases?:string[];parentId?:string};
 type Offer={roundTrip?:boolean;poolId?:string|null;shareSize?:number|null;departure?:string;occupied?:number;remaining?:number;tripTotal?:number;unitPrice?:number;vehicleId:string;name:string;seats:number;image:{id:string;alt:string}|null;note:string;durationMinutes:number|null;total:number};
 export type RideCatalog={sharedScopes?:SharedScope[];enabled:boolean;qrEnabled?:boolean;areas:Area[]};
 export function RideBooking({catalog,en=false,atCounter=false}:{catalog:RideCatalog;en?:boolean;atCounter?:boolean}){

@@ -1,6 +1,6 @@
 export type SharedScope={from:string;to:string;vehicleId:string;twoWay?:boolean;shared:boolean;sharedSizes?:number[]};
-type Area={id:string;parentId?:string;central?:boolean};
-function path(areas:Area[],id:string){const ids:string[]=[],seen=new Set<string>();let central=false;while(id&&!seen.has(id)){seen.add(id);ids.push(id);const a=areas.find(a=>a.id===id);central=central||a?.central===true;if(!central)break;id=a?.parentId||'';}return ids;}
+type Area={id:string;parentId?:string;central?:boolean;sharedAncestors?:string[]};
+function path(areas:Area[],id:string){const known=areas.find(a=>a.id===id)?.sharedAncestors;if(known)return [...new Set([id,...known])];const ids:string[]=[],seen=new Set<string>();let central=false;while(id&&!seen.has(id)){seen.add(id);ids.push(id);const a=areas.find(a=>a.id===id);central=central||a?.central===true;if(!central)break;id=a?.parentId||'';}return ids;}
 export function sharedRideAreas<T extends Area>(areas:T[],scopes:SharedScope[],from?:string,passengers=1):T[]{
  if(!Number.isInteger(passengers)||passengers<1)return [];
  const paths=new Map(areas.map(a=>[a.id,path(areas,a.id)]));

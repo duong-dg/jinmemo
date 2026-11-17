@@ -36,3 +36,14 @@ test('shared area choices follow group capacity and never fall back past a neare
  scopes.push({from:'ha',to:'center',vehicleId:'car',twoWay:true,shared:false,sharedSizes:[2]});
  assert.deepEqual(sharedRideAreas(areas,scopes,'ha',2).map(a=>a.id),['dn','hue']);
 });
+
+test('API ancestry preserves central matching when unpriced grouping nodes are omitted',()=>{
+ const areas=[{id:'ha',sharedAncestors:['ha']},{id:'dn',sharedAncestors:['dn']},{id:'center',parentId:'hidden-district',central:true,sharedAncestors:['center','hidden-district','dn']}];
+ const scopes:SharedScope[]=[{from:'ha',to:'dn',vehicleId:'v',twoWay:true,shared:true,sharedSizes:[2]}];
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha',1).map(a=>a.id),['dn','center']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,'center',1).map(a=>a.id),['ha']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,undefined,1).map(a=>a.id),['ha','dn','center']);
+ assert.deepEqual(sharedRideAreas(areas,scopes,undefined,3),[]);
+ scopes.push({from:'ha',to:'center',vehicleId:'v',twoWay:true,shared:false,sharedSizes:[2]});
+ assert.deepEqual(sharedRideAreas(areas,scopes,'ha').map(a=>a.id),['dn']);
+});

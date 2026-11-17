@@ -120,3 +120,15 @@ test('public catalog and booking creation fail closed for unpriced remote areas 
  assert.deepEqual((await service.destinations('unknown','1')).data,[]);
  plan.enabled=false;assert.deepEqual((await service.destinations('ha','1')).data,[]);
  });
+
+test('public central paths survive hidden unpriced intermediate districts',async()=>{
+ const plan=planSchema.parse({enabled:true,vehicles:[{id:'car',name:'Car',seats:3,sharedSizes:[2]}],areas:[{id:'ha',name:'Hoi An'},{id:'dn',name:'Da Nang'},{id:'district',name:'District',parentId:'dn'},{id:'center',name:'Center',parentId:'district',central:true},{id:'remote',name:'Remote',parentId:'district'}],fares:[{id:'f',from:'ha',to:'dn',vehicleId:'car',privatePrice:250000,seatPrice:0,twoWay:true,sharedEnabled:true}],trips:[],requests:[]});
+ const service=new RidesService({} as any);service.plan=async()=>plan;
+ const catalog=(await service.catalog()).data;
+ assert.deepEqual(catalog.areas.map(a=>a.id),['ha','dn','center']);
+ assert.deepEqual(catalog.areas.find(a=>a.id==='center')!.sharedAncestors,['center','district','dn']);
+ assert.deepEqual(catalog.areas.find(a=>a.id==='ha')!.sharedAncestors,['ha']);
+ assert.deepEqual((await service.destinations('ha','1','SHARED')).data,['dn','center']);
+ assert.deepEqual((await service.destinations('center','1','SHARED')).data,['ha']);
+ assert.deepEqual((await service.destinations('remote','1','SHARED')).data,[]);
+});

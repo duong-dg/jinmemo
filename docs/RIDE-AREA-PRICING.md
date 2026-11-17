@@ -19,3 +19,5 @@ Không sửa ngược giá hoặc thanh toán của booking đã tạo. Nếu tr
 Khu vực được tích Trung tâm có thể dùng tuyến cha đã bật xe ghép, cùng chiều đi và cấu hình số người ghép. Chỉ có phụ thu bằng 0 không tự bật xe ghép. Giá tuyến riêng gần hơn vẫn được ưu tiên, kể cả khi tuyến riêng tắt ghép.
 
 Nhóm ghép dùng điểm đầu/cuối của tuyến giá để nhận khách từ các điểm trung tâm khác nhau. Booking vẫn lưu khu vực và địa chỉ đón/trả cụ thể của từng khách. Hai chiều không ghép chung nhau; ngày, giờ, loại xe và giới hạn chỗ vẫn được kiểm tra như trước. Không thay đổi các booking cũ.
+
+Danh sách công khai giữ thông tin kế thừa trung tâm ngay cả khi quận/huyện trung gian không có giá và không được hiển thị để chọn. Không cần nhập giá giả cho các cấp trung gian để điểm trung tâm có thể tìm xe ghép.
