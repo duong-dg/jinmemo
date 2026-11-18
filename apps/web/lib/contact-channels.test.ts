@@ -7,3 +7,8 @@ test('chat links reject scripts, credentials and lookalike domains',()=>{
  for(const url of ['javascript:alert(1)','http://m.me/test','https://m.me.evil.example/test','https://m.me@evil.example/test','https://user:pass@m.me/test','https://m.me:444/test','https://facebook.com/fanpage'])assert.deepEqual(contactChannels({messengerUrl:url}),[],url);
  assert.deepEqual(contactChannels({zaloUrl:'https://evil.example/test'}),[]);assert.equal(contactChannels({messengerUrl:'https://www.facebook.com/messages/t/jinmemo'})[0].name,'Messenger');
 });
+
+test('Facebook opens a page independently from Messenger and validates its domain',()=>{
+ const c=contactChannels({facebookUrl:'https://www.facebook.com/jinmemo',messengerUrl:'https://m.me/jinmemo'});assert.equal(c.length,2);assert.equal(c[1].kind,'facebook');assert.equal(c[1].label,'Xem fanpage');assert.equal(c[0].name,'Messenger');assert.equal(contactChannels({facebookUrl:'https://facebook.com/profile.php?id=123'},true)[0].label,'Visit our Facebook page');
+ for(const url of ['javascript:alert(1)','https://facebook.com.evil.example/page','https://facebook.com@evil.example/page','https://user:pass@facebook.com/page','https://m.me/page','http://facebook.com/page'])assert.deepEqual(contactChannels({facebookUrl:url}),[],url);
+});

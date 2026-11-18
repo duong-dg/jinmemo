@@ -19,3 +19,5 @@ Admin: Pages → Content pages & menu (`/admin/trang-noi-dung`).
 Trang → Liên hệ → Thông tin liên hệ có ô WhatsApp, link Zalo và Messenger. WhatsApp nhập số quốc tế, ví dụ +84 901 234 567 (bỏ số 0 đầu số Việt Nam). Zalo dùng https://zalo.me/...; Messenger dùng https://m.me/tenfanpage hoặc link messages/t của Facebook. Lưu trang để các thẻ nhắn tin xuất hiện ở website. Giá trị để trống tự ẩn, dùng chung cho bản Việt/Anh, không cần nhập lại bản dịch. Giữ nguyên điện thoại, email, bản đồ và form gửi liên hệ hiện có.
 
 Chỉ nhận liên kết HTTPS đúng tên miền của kênh và không có thông tin đăng nhập trong URL. Dữ liệu JSON cũ không có trường mới vẫn đọc/lưu được; không cần migration. Không tự gán số hoặc tài khoản chưa được chủ website nhập.
+
+Facebook / Fanpage có ô riêng nhận https://facebook.com/... hoặc https://www.facebook.com/..., hiện thẻ Xem fanpage. Messenger vẫn là link nhắn tin riêng, không bị thay thế khi nhập Facebook.
