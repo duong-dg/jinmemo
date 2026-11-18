@@ -4,3 +4,5 @@
 
 .contact-sidebar{min-width:0;display:grid;gap:20px}.contact-sidebar .contact-cards{margin:0;grid-template-columns:1fr}.contact-sidebar .contact-support{max-width:none}
 @media(max-width:800px){.content-page-layout.has-contact>.content-page-body{grid-row:2}.contact-sidebar{display:contents}.contact-sidebar .contact-cards{grid-row:1}.contact-sidebar .contact-support{grid-row:3}}
+
+.contact-chat .contact-chat-label{display:block;margin-top:7px;font-size:13px;font-weight:500}.contact-chat-whatsapp .contact-card-icon{background:#e4f6e9;color:#187a3e}.contact-chat-zalo .contact-card-icon{background:#e7f0ff;color:#1466c6}.contact-chat-messenger .contact-card-icon{background:#efebff;color:#6c41c9}

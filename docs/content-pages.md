@@ -13,3 +13,9 @@ Admin: Pages → Content pages & menu (`/admin/trang-noi-dung`).
 - Pages → Contact enquiries (`/admin/lien-he`): view the newest 100 per status, open a reply in your email application, mark done, move to trash or restore. Admin authentication, mutation origin checks and audit records protect state changes. Customer text is rendered as plain text.
 - Public submissions require the configured PUBLIC_BASE_URL origin and X-JinMemo-Contact header. Strict input validation, a honeypot, a per-email limit (3/15 minutes) and a per-process global limit (100/15 minutes) reduce spam. Browser retries reuse a request ID, so a lost response does not create duplicates; changed content uses a new ID. The per-process limits reset on API restart. No request-list endpoint is public.
 - Form enquiries do not subscribe visitors to marketing or send automatic emails. Staff should check the admin inbox and reply manually. The configured support mailbox must exist at the email provider to receive direct email links.
+
+## Kênh nhắn tin trên trang Liên hệ
+
+Trang → Liên hệ → Thông tin liên hệ có ô WhatsApp, link Zalo và Messenger. WhatsApp nhập số quốc tế, ví dụ +84 901 234 567 (bỏ số 0 đầu số Việt Nam). Zalo dùng https://zalo.me/...; Messenger dùng https://m.me/tenfanpage hoặc link messages/t của Facebook. Lưu trang để các thẻ nhắn tin xuất hiện ở website. Giá trị để trống tự ẩn, dùng chung cho bản Việt/Anh, không cần nhập lại bản dịch. Giữ nguyên điện thoại, email, bản đồ và form gửi liên hệ hiện có.
+
+Chỉ nhận liên kết HTTPS đúng tên miền của kênh và không có thông tin đăng nhập trong URL. Dữ liệu JSON cũ không có trường mới vẫn đọc/lưu được; không cần migration. Không tự gán số hoặc tài khoản chưa được chủ website nhập.
