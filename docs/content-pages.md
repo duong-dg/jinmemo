@@ -21,3 +21,5 @@ Trang → Liên hệ → Thông tin liên hệ có ô WhatsApp, link Zalo và Me
 Chỉ nhận liên kết HTTPS đúng tên miền của kênh và không có thông tin đăng nhập trong URL. Dữ liệu JSON cũ không có trường mới vẫn đọc/lưu được; không cần migration. Không tự gán số hoặc tài khoản chưa được chủ website nhập.
 
 Facebook / Fanpage có ô riêng nhận https://facebook.com/... hoặc https://www.facebook.com/..., hiện thẻ Xem fanpage. Messenger vẫn là link nhắn tin riêng, không bị thay thế khi nhập Facebook.
+
+Các kênh Facebook, Messenger, Zalo và WhatsApp hiển thị gọn trong một hàng logo SVG, không tạo thẻ riêng cho từng mạng. Icon có nhãn trợ năng và tên khi rê chuột, dùng liên kết đã lưu ở admin; để trống thì tự ẩn.
