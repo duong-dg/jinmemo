@@ -1,0 +1,1 @@
+export function mergeGallery<T extends {id:string}>(current:T[],added:T[],limit=20):T[]{const seen=new Set<string>(),result:T[]=[];for(const image of [...current,...added]){if(seen.has(image.id))continue;seen.add(image.id);if(result.length<limit)result.push(image);}return result;}
